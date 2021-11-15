@@ -1,8 +1,14 @@
+import os
+from os.path import exists
+
 import torch
 from kge import Config, Dataset
 from kge.job import Job
 from kge.model.kge_model import RelationalScorer, KgeModel
 from torch.nn import functional as F
+
+from kge.util import load_checkpoint
+from kge.util.io import get_checkpoint_file
 
 
 class EnsembleScorer(RelationalScorer):
@@ -10,31 +16,32 @@ class EnsembleScorer(RelationalScorer):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
-        self._norm = self.get_option("l_norm")
+
+        # pretrained model checkpoint
+        pretrained_model_path = os.path.join(
+            "../",
+            "local",
+            "pretraining",
+            "fb15k-237",
+            "transe",
+        )
+        pretrained_model_config = Config()
+        pretrained_model_config.set("job.device", config.get("job.device"))
+        pretrained_model_config_path = os.path.join(
+            pretrained_model_path,
+            "config.yaml"
+        )
+        if exists(pretrained_model_config_path):
+            pretrained_model_config.load(pretrained_model_config_path)
+            pretrained_model_config.folder = pretrained_model_path
+            pretrained_model_checkpoint_file = pretrained_model_config.checkpoint_file("best")
+            checkpoint = load_checkpoint(pretrained_model_checkpoint_file, pretrained_model_config.get("job.device"))
+            self.model = KgeModel.create(pretrained_model_config, dataset, init_for_load_only=True)
+            self.model.load(checkpoint["model"])
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
-        n = p_emb.size(0)
-        if combine == "spo":
-            out = -F.pairwise_distance(s_emb + p_emb, o_emb, p=self._norm)
-        elif combine == "sp_":
-            # we do not use matrix multiplication due to this issue
-            # https://github.com/pytorch/pytorch/issues/42479
-            out = -torch.cdist(
-                s_emb + p_emb,
-                o_emb,
-                p=self._norm,
-                compute_mode="donot_use_mm_for_euclid_dist",
-                )
-        elif combine == "_po":
-            out = -torch.cdist(
-                o_emb - p_emb,
-                s_emb,
-                p=self._norm,
-                compute_mode="donot_use_mm_for_euclid_dist",
-                )
-        else:
-            return super().score_emb(s_emb, p_emb, o_emb, combine)
-        return out.view(n, -1)
+        score = self.model.score_spo(s_emb, p_emb, o_emb, "o")
+        return score
 
 
 class Ensemble(KgeModel):
