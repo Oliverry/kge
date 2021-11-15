@@ -5,47 +5,56 @@ import torch
 from kge import Config, Dataset
 from kge.job import Job
 from kge.model.kge_model import RelationalScorer, KgeModel
-from torch.nn import functional as F
-
 from kge.util import load_checkpoint
-from kge.util.io import get_checkpoint_file
+
+
+def load_pretrained_model(config, dataset, model_name):
+    pretrained_model_path = os.path.join(
+        "../",
+        "local",
+        "pretraining",
+        config.get("dataset.name"),
+        model_name
+    )
+    pretrained_model_config = Config()
+    pretrained_model_config.set("job.device", config.get("job.device"))
+    pretrained_model_config_path = os.path.join(
+        pretrained_model_path,
+        "config.yaml"
+    )
+    if exists(pretrained_model_config_path):
+        pretrained_model_config.load(pretrained_model_config_path)
+        pretrained_model_config.folder = pretrained_model_path
+        pretrained_model_checkpoint_file = pretrained_model_config.checkpoint_file("best")
+        checkpoint = load_checkpoint(pretrained_model_checkpoint_file, pretrained_model_config.get("job.device"))
+        model = KgeModel.create(pretrained_model_config, dataset, init_for_load_only=True)
+        model.load(checkpoint["model"])
+        return model
+    else:
+        return None
 
 
 class EnsembleScorer(RelationalScorer):
-    r"""Implementation of the TransE KGE scorer."""
+    r"""Implementation of the Ensemble KGE scorer."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
-
-        # pretrained model checkpoint
-        pretrained_model_path = os.path.join(
-            "../",
-            "local",
-            "pretraining",
-            "fb15k-237",
-            "transe",
-        )
-        pretrained_model_config = Config()
-        pretrained_model_config.set("job.device", config.get("job.device"))
-        pretrained_model_config_path = os.path.join(
-            pretrained_model_path,
-            "config.yaml"
-        )
-        if exists(pretrained_model_config_path):
-            pretrained_model_config.load(pretrained_model_config_path)
-            pretrained_model_config.folder = pretrained_model_path
-            pretrained_model_checkpoint_file = pretrained_model_config.checkpoint_file("best")
-            checkpoint = load_checkpoint(pretrained_model_checkpoint_file, pretrained_model_config.get("job.device"))
-            self.model = KgeModel.create(pretrained_model_config, dataset, init_for_load_only=True)
-            self.model.load(checkpoint["model"])
+        transe_model = load_pretrained_model(config, dataset, "transe")
+        complex_model = load_pretrained_model(config, dataset, "complex")
+        self.models = [transe_model, complex_model]
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
-        score = self.model.score_spo(s_emb, p_emb, o_emb, "o")
-        return score
+        scores = None
+        for model in self.models:
+            if scores is None:
+                scores = model.score_spo(s_emb, p_emb, o_emb, "o")
+            else:
+                scores = torch.cat((scores, model.score_spo(s_emb, p_emb, o_emb, "o")), 0)
+        return torch.mean(scores, dim=1)
 
 
 class Ensemble(KgeModel):
-    r"""Implementation of the TransE KGE model."""
+    r"""Implementation of the Ensemble KGE model."""
 
     def __init__(
             self,
