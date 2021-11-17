@@ -8,9 +8,6 @@ class ReciprocalRelationsModel(KgeModel):
     """Modifies a base model to use different relation embeddings for predicting subject and object.
 
     This implements the reciprocal relations training procedure of [TODO cite ConvE].
-    Note that this model cannot be used to score a single triple, but only to rank sp_
-    or _po questions.
-
     """
 
     def __init__(
@@ -63,6 +60,10 @@ class ReciprocalRelationsModel(KgeModel):
             return super().score_spo(s, p, o, "o")
         elif direction == "s":
             return super().score_spo(o, p + self.dataset.num_relations(), s, "o")
+        elif direction == "spo":
+            s1 = super().score_spo(s, p, o, "o")
+            s2 = super().score_spo(o, p + self.dataset.num_relations(), s, "o")
+            return torch.mean(torch.cat([s1, s2], 0))
         else:
             raise Exception(
                 "The reciprocal relations model cannot compute "

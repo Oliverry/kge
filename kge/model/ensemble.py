@@ -47,7 +47,7 @@ class EnsembleScorer(RelationalScorer):
         scores = None
         for model in self.models:
             if scores is None:
-                scores = model.score_spo(s_emb, p_emb, o_emb, "o")
+                scores = model.score_spo(s_emb, p_emb, o_emb, "spo")
             else:
                 scores = torch.cat((scores, model.score_spo(s_emb, p_emb, o_emb, "o")), 0)
         return torch.mean(scores, dim=1)
