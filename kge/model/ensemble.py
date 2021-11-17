@@ -60,9 +60,9 @@ class Ensemble(KgeModel):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
-        transe_model = load_pretrained_model(config, dataset, "transe")
-        complex_model = load_pretrained_model(config, dataset, "complex")
-        self.models = [transe_model, complex_model]
+        self.models = []
+        for model in self.get_option("submodels"):
+            self.models.append(load_pretrained_model(config, dataset, model))
 
     def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)

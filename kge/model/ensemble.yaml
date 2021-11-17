@@ -8,5 +8,6 @@ ensemble:
   relation_embedder:
     type: lookup_embedder
     +++: +++
+  submodels: [transe]
   l_norm: 1.
 
