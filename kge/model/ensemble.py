@@ -2,6 +2,8 @@ import os
 from os.path import exists
 
 import torch
+from torch import Tensor
+
 from kge import Config, Dataset
 from kge.job import Job
 from kge.model.kge_model import RelationalScorer, KgeModel
@@ -39,9 +41,6 @@ class EnsembleScorer(RelationalScorer):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
-        transe_model = load_pretrained_model(config, dataset, "transe")
-        complex_model = load_pretrained_model(config, dataset, "complex")
-        self.models = [transe_model, complex_model]
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
         scores = None
@@ -70,6 +69,9 @@ class Ensemble(KgeModel):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
+        transe_model = load_pretrained_model(config, dataset, "transe")
+        complex_model = load_pretrained_model(config, dataset, "complex")
+        self.models = [transe_model, complex_model]
 
     def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)
@@ -82,3 +84,5 @@ class Ensemble(KgeModel):
         ):
             # TransE with batch currently tends to run out of memory, so we use triple.
             job.config.set("negative_sampling.implementation", "triple", log=True)
+
+    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:

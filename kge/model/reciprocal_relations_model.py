@@ -11,11 +11,11 @@ class ReciprocalRelationsModel(KgeModel):
     """
 
     def __init__(
-        self,
-        config: Config,
-        dataset: Dataset,
-        configuration_key=None,
-        init_for_load_only=False,
+            self,
+            config: Config,
+            dataset: Dataset,
+            configuration_key=None,
+            init_for_load_only=False,
     ):
         self._init_configuration(config, configuration_key)
 
@@ -60,15 +60,10 @@ class ReciprocalRelationsModel(KgeModel):
             return super().score_spo(s, p, o, "o")
         elif direction == "s":
             return super().score_spo(o, p + self.dataset.num_relations(), s, "o")
-        elif direction == "spo":
+        else:
             s1 = super().score_spo(s, p, o, "o")
             s2 = super().score_spo(o, p + self.dataset.num_relations(), s, "o")
             return torch.mean(torch.cat([s1, s2], 0))
-        else:
-            raise Exception(
-                "The reciprocal relations model cannot compute "
-                "undirected spo scores."
-            )
 
     def score_po(self, p, o, s=None):
         if s is None:
@@ -83,11 +78,11 @@ class ReciprocalRelationsModel(KgeModel):
         raise Exception("The reciprocal relations model cannot score relations.")
 
     def score_sp_po(
-        self,
-        s: torch.Tensor,
-        p: torch.Tensor,
-        o: torch.Tensor,
-        entity_subset: torch.Tensor = None,
+            self,
+            s: torch.Tensor,
+            p: torch.Tensor,
+            o: torch.Tensor,
+            entity_subset: torch.Tensor = None,
     ) -> torch.Tensor:
         s = self.get_s_embedder().embed(s)
         p_inv = self.get_p_embedder().embed(p + self.dataset.num_relations())
