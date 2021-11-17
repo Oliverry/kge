@@ -6,34 +6,25 @@ from torch import Tensor
 
 from kge import Config, Dataset
 from kge.job import Job
+from kge.misc import pretrained_model_dir
 from kge.model.kge_model import RelationalScorer, KgeModel
 from kge.util import load_checkpoint
 
 
-def load_pretrained_model(config, dataset, model_name):
-    pretrained_model_path = os.path.join(
-        "../",
-        "local",
-        "pretraining",
-        config.get("dataset.name"),
-        model_name
-    )
-    pretrained_model_config = Config()
-    pretrained_model_config.set("job.device", config.get("job.device"))
-    pretrained_model_config_path = os.path.join(
-        pretrained_model_path,
-        "config.yaml"
-    )
-    if exists(pretrained_model_config_path):
-        pretrained_model_config.load(pretrained_model_config_path)
+def load_pretrained_model(config, dataset, model_name) -> KgeModel:
+    pretrained_model_path = os.path.join(pretrained_model_dir(), config.get("dataset.name"), model_name)
+    pretrained_model_checkpoint_path = os.path.join(pretrained_model_path, "checkpoint_best.pt")
+    if exists(pretrained_model_checkpoint_path):
+        checkpoint = load_checkpoint(pretrained_model_checkpoint_path, config.get("job.device"))
+        pretrained_model_config = Config.create_from(checkpoint)
+        pretrained_model_config.set("job.device", config.get("job.device"))
         pretrained_model_config.folder = pretrained_model_path
-        pretrained_model_checkpoint_file = pretrained_model_config.checkpoint_file("best")
-        checkpoint = load_checkpoint(pretrained_model_checkpoint_file, pretrained_model_config.get("job.device"))
         model = KgeModel.create(pretrained_model_config, dataset, init_for_load_only=True)
         model.load(checkpoint["model"])
+        model.eval()
         return model
     else:
-        return None
+        raise Exception("Could not find pretrained model.")
 
 
 class EnsembleScorer(RelationalScorer):
@@ -86,3 +77,4 @@ class Ensemble(KgeModel):
             job.config.set("negative_sampling.implementation", "triple", log=True)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
+        pass
