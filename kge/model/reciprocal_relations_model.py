@@ -61,9 +61,10 @@ class ReciprocalRelationsModel(KgeModel):
         elif direction == "s":
             return super().score_spo(o, p + self.dataset.num_relations(), s, "o")
         else:
-            s1 = super().score_spo(s, p, o, "o")
-            s2 = super().score_spo(o, p + self.dataset.num_relations(), s, "o")
-            return torch.mean(torch.cat([s1, s2], 0))
+            s_o = self.score_spo(s, p, o, "o")
+            s_p = self.score_spo(s, p, o, "s")
+            score_avg = torch.mean(torch.cat([s_o, s_p], 0))
+            return score_avg
 
     def score_po(self, p, o, s=None):
         if s is None:
