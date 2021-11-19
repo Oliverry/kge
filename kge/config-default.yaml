@@ -129,7 +129,7 @@ dataset:
 # Python modules that should be searched for models, embedders, jobs, etc.
 # LibKGE may not respect the module order specified here, so make sure to use
 # unique names. See also options 'import' and 'model' below.
-modules: [ kge.job, kge.model, kge.model.embedder ]
+modules: [ kge.job, kge.model, kge.model.embedder, kge.model.ensemble ]
 
 # Names of additional configuration files to import. When this entry contains
 # entry NAME, then the modules above are searched for a file NAME.yaml, and this
