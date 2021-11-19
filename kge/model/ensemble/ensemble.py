@@ -1,13 +1,10 @@
 import os
 from os.path import exists
 
-import torch
-from torch import Tensor
-
 from kge import Config, Dataset
 from kge.job import Job
 from kge.misc import pretrained_model_dir
-from kge.model.kge_model import RelationalScorer, KgeModel
+from kge.model.kge_model import KgeModel
 from kge.util import load_checkpoint
 
 
@@ -27,22 +24,6 @@ def load_pretrained_model(config, dataset, model_name) -> KgeModel:
         raise Exception("Could not find pretrained model.")
 
 
-class EnsembleScorer(RelationalScorer):
-    r"""Implementation of the Ensemble KGE scorer."""
-
-    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
-        super().__init__(config, dataset, configuration_key)
-
-    def score_emb(self, s_emb, p_emb, o_emb, combine: str):
-        scores = None
-        for model in self.models:
-            if scores is None:
-                scores = model.score_spo(s_emb, p_emb, o_emb, "spo")
-            else:
-                scores = torch.cat((scores, model.score_spo(s_emb, p_emb, o_emb, "o")), 0)
-        return torch.mean(scores, dim=1)
-
-
 class Ensemble(KgeModel):
     r"""Implementation of the Ensemble KGE model."""
 
@@ -56,13 +37,13 @@ class Ensemble(KgeModel):
         super().__init__(
             config=config,
             dataset=dataset,
-            scorer=EnsembleScorer,
+            scorer=None,
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
-        self.models = []
+        self.submodels = []
         for model in self.get_option("submodels"):
-            self.models.append(load_pretrained_model(config, dataset, model))
+            self.submodels.append(load_pretrained_model(config, dataset, model))
 
     def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)
@@ -75,6 +56,3 @@ class Ensemble(KgeModel):
         ):
             # TransE with batch currently tends to run out of memory, so we use triple.
             job.config.set("negative_sampling.implementation", "triple", log=True)
-
-    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        pass
