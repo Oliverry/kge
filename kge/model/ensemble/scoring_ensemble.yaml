@@ -1,0 +1,14 @@
+import: [lookup_embedder]
+
+scoring_ensemble:
+  class_name: ScoringEnsemble
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++
+  submodels: [transe]
+  evaluator: avg
+  l_norm: 1.
+

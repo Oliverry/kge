@@ -15252,7 +15252,7 @@
 											"top": 1920,
 											"width": 196.16162109375,
 											"height": 13,
-											"text": "+combine(scores: Tensor): Tensor",
+											"text": "+forward(scores: Tensor): Tensor",
 											"horizontalAlignment": 0
 										},
 										{
@@ -21932,7 +21932,7 @@
 											"_parent": {
 												"$ref": "AAAAAAF9ODn7OF+ih8s="
 											},
-											"name": "combine",
+											"name": "forward",
 											"parameters": [
 												{
 													"_type": "UMLParameter",

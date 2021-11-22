@@ -1,3 +1,4 @@
+import torch
 from torch import nn, Tensor
 
 
@@ -16,4 +17,4 @@ class AvgScoringEvaluator(ScoringEvaluator):
         super().__init__()
 
     def forward(self, scores: Tensor) -> Tensor:
-        pass
+        return torch.mean(scores, dim=0)
