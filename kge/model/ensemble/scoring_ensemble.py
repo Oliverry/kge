@@ -3,7 +3,7 @@ from torch import Tensor
 
 from kge import Config, Dataset
 from kge.model import Ensemble
-from kge.model.ensemble.scoring_evaluator import AvgScoringEvaluator
+from kge.model.ensemble.scoring_evaluator import AvgScoringEvaluator, PlattScalingEvaluator
 
 
 class ScoringEnsemble(Ensemble):
@@ -23,7 +23,9 @@ class ScoringEnsemble(Ensemble):
         )
         evaluator_str = self.get_option("evaluator")
         if evaluator_str == "avg":
-            self.evaluator = AvgScoringEvaluator()
+            self.evaluator = AvgScoringEvaluator(config)
+        elif evaluator_str == "platt":
+            self.evaluator = PlattScalingEvaluator(config)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         scores = torch.empty((len(self.submodels), s.size(dim=0)))

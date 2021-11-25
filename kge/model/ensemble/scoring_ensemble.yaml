@@ -9,6 +9,8 @@ scoring_ensemble:
     type: lookup_embedder
     +++: +++
   submodels: [transe]
-  evaluator: avg
+  evaluator: platt
   l_norm: 1.
+  plattscaling:
+    num_models: 2
 
