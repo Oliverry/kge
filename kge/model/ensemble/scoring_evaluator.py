@@ -20,6 +20,12 @@ class ScoringEvaluator(torch.nn.Module, Configurable):
         """
         raise NotImplementedError
 
+    def save(self):
+        raise NotImplementedError
+
+    def load(self, savepoint):
+        raise NotImplementedError
+
 
 class AvgScoringEvaluator(ScoringEvaluator):
 
@@ -29,6 +35,12 @@ class AvgScoringEvaluator(ScoringEvaluator):
     def forward(self, scores: Tensor) -> Tensor:
         res = torch.mean(scores, dim=1)
         return res
+
+    def save(self):
+        pass
+
+    def load(self, savepoint):
+        pass
 
 
 class PlattScalingEvaluator(ScoringEvaluator):
@@ -52,6 +64,16 @@ class PlattScalingEvaluator(ScoringEvaluator):
         res = torch.mean(res, dim=1)
         return res
 
+    def save(self):
+        state = {}
+        for idx, scaler in enumerate(self.scalers):
+            state[idx] = scaler.save()
+        return state
+
+    def load(self, savepoint):
+        for idx, scaler in enumerate(self.scalers):
+            scaler.load(savepoint[idx])
+
 
 class PlattScaler(nn.Module):
 
@@ -64,4 +86,10 @@ class PlattScaler(nn.Module):
         t = self.linear(scores)
         t = self.sigmoid(-t)
         return t
+
+    def save(self):
+        return self.state_dict()
+
+    def load(self, savepoint):
+        self.load_state_dict(savepoint)
 

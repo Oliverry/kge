@@ -786,4 +786,5 @@ class KgeModel(KgeBase):
                 all_subjects = self.get_s_embedder().embed_all()
             sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp_")
             po_scores = self._scorer.score_emb(all_subjects, p, o, combine="_po")
-        return torch.cat((sp_scores, po_scores), dim=1)
+        res = torch.cat((sp_scores, po_scores), dim=1)
+        return res

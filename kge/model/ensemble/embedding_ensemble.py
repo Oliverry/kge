@@ -6,7 +6,7 @@ from kge.model import Ensemble
 from kge.model.ensemble.scoring_evaluator import AvgScoringEvaluator, PlattScalingEvaluator
 
 
-class ScoringEnsemble(Ensemble):
+class EmbeddingEnsemble(Ensemble):
 
     def __init__(
             self,
@@ -61,7 +61,7 @@ class ScoringEnsemble(Ensemble):
         return self.evaluator(scores)
 
     def score_sp_po(
-        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
+            self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
     ) -> Tensor:
         col_size = 2*entity_subset.size()[0]
         col_scores = [torch.empty(len(self.submodels), s.size()[0]) for _ in range(0, col_size)]
@@ -78,15 +78,8 @@ class ScoringEnsemble(Ensemble):
         res = torch.transpose(res, 0, 1)
         return res
 
-    def combine(self, scores: Tensor):
+    def save(self):
         pass
 
-    def save(self):
-        state_dict = super().save()
-        state_dict["evaluator"] = self.evaluator.save()
-        return state_dict
-
     def load(self, savepoint):
-        super().load(savepoint)
-        self.evaluator.load(savepoint)
-    
+        pass
