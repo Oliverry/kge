@@ -38,17 +38,6 @@ class ScoringEnsemble(Ensemble):
                 scores = torch.cat((scores, model_scores), 1)
         return self.evaluator(scores)
 
-    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        scores = None
-        for idx, model in enumerate(self.submodels):
-            model_scores = model.score_spo(s, p, o, direction)
-            model_scores = torch.unsqueeze(model_scores, dim=-1)
-            if scores is None:
-                scores = model_scores
-            else:
-                scores = torch.cat((scores, model_scores), 1)
-        return self.evaluator(scores)
-
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         scores = []
         for idx, model in enumerate(self.submodels):
