@@ -39,16 +39,17 @@ class PlattScalingEvaluator(ScoringEvaluator):
         self.scalers = [PlattScaler(config, configuration_key) for _ in range(0, m)]
 
     def forward(self, scores: Tensor) -> Tensor:
+        res = None
         t = torch.transpose(scores, 0, 1)
         for idx, scaler in enumerate(self.scalers):
             tmp = t[idx]
-            t_size = len(tmp)
-            tmp = tmp.view(t_size, 1)
+            tmp = torch.unsqueeze(tmp, dim=-1)
             tmp = self.scalers[idx].forward(tmp)
-            tmp = tmp.view(t_size)
-            t[idx] = tmp
-        t = torch.transpose(t, 0, 1)
-        res = torch.mean(t, dim=1)
+            if res is None:
+                res = tmp
+            else:
+                res = torch.cat((res, tmp), 1)
+        res = torch.mean(res, dim=1)
         return res
 
 
