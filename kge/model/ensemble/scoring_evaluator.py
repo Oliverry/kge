@@ -11,6 +11,13 @@ class ScoringEvaluator(torch.nn.Module, Configurable):
         torch.nn.Module.__init__(self)
 
     def forward(self, scores: Tensor) -> Tensor:
+        """
+        Takes a tensor of scores of the form n times E, where n is the number of spo scores
+        and E is the number of ensemble approaches.
+        Then the scores are combined row wise
+        :param scores: Tensor of scores
+        :return: Combined tensor of scores
+        """
         raise NotImplementedError
 
 
@@ -20,7 +27,8 @@ class AvgScoringEvaluator(ScoringEvaluator):
         super().__init__(config, configuration_key)
 
     def forward(self, scores: Tensor) -> Tensor:
-        return torch.mean(scores, dim=0)
+        res = torch.mean(scores, dim=1)
+        return res
 
 
 class PlattScalingEvaluator(ScoringEvaluator):
@@ -31,22 +39,23 @@ class PlattScalingEvaluator(ScoringEvaluator):
         self.scalers = [PlattScaler(config, configuration_key) for _ in range(0, m)]
 
     def forward(self, scores: Tensor) -> Tensor:
-        res = None
+        t = torch.transpose(scores, 0, 1)
         for idx, scaler in enumerate(self.scalers):
-            tmp = scores[idx]
-            tmp = torch.unsqueeze(tmp, dim=-1)
+            tmp = t[idx]
+            t_size = len(tmp)
+            tmp = tmp.view(t_size, 1)
             tmp = self.scalers[idx].forward(tmp)
-            if res is None:
-                res = tmp
-            else:
-                res = torch.cat((res, tmp), 1)
-        res = torch.mean(res, dim=1)
+            tmp = tmp.view(t_size)
+            t[idx] = tmp
+        t = torch.transpose(t, 0, 1)
+        res = torch.mean(t, dim=1)
         return res
 
 
-class PlattScaler:
+class PlattScaler(nn.Module):
 
-    def __init__(self, config: Config, configuration_key) -> Tensor:
+    def __init__(self, config: Config, configuration_key):
+        super(PlattScaler, self).__init__()
         self.linear = nn.Linear(1, 1, bias=True)
         self.sigmoid = nn.Sigmoid()
 
