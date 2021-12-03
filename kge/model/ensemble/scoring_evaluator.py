@@ -48,7 +48,7 @@ class PlattScalingEvaluator(ScoringEvaluator):
     def __init__(self, config: Config, configuration_key=None):
         super().__init__(config, configuration_key)
         m = 2  # int(self.get_option("num_models"))
-        self.scalers = [PlattScaler(config, configuration_key) for _ in range(0, m)]
+        self.scalers = nn.ModuleList([PlattScaler(config, configuration_key) for _ in range(0, m)])
 
     def forward(self, scores: Tensor) -> Tensor:
         states = [scaler.state_dict() for scaler in self.scalers]
@@ -57,12 +57,13 @@ class PlattScalingEvaluator(ScoringEvaluator):
         for idx, scaler in enumerate(self.scalers):
             tmp = t[idx]
             tmp = torch.unsqueeze(tmp, dim=-1)
-            tmp = self.scalers[idx].forward(tmp)
+            tmp = self.scalers[idx](tmp)
             if res is None:
                 res = tmp
             else:
                 res = torch.cat((res, tmp), 1)
         res = torch.mean(res, dim=1)
+        print(list(self.parameters()))
         return res
 
     def save(self):

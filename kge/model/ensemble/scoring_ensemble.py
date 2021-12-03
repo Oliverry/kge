@@ -1,5 +1,5 @@
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 
 from kge import Config, Dataset
 from kge.model import Ensemble
@@ -29,6 +29,8 @@ class ScoringEnsemble(Ensemble):
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         scores = None
+        params = self.parameters()
+        params_rec = self.parameters(recurse=True)
         for idx, model in enumerate(self.submodels):
             model_scores = model.score_spo(s, p, o, direction).detach()
             model_scores = torch.unsqueeze(model_scores, dim=-1)
@@ -37,6 +39,7 @@ class ScoringEnsemble(Ensemble):
             else:
                 scores = torch.cat((scores, model_scores), 1)
         res = self.evaluator(scores)
+        # print(list(self.parameters()))
         return res
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
