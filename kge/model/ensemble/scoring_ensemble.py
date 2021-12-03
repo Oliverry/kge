@@ -83,10 +83,10 @@ class ScoringEnsemble(Ensemble):
 
     def save(self):
         state_dict = super().save()
-        state_dict["evaluator"] = self.evaluator.save()
+        state_dict[0]["evaluator"] = self.evaluator.save()
         return state_dict
 
     def load(self, savepoint):
         super().load(savepoint)
-        self.evaluator.load(savepoint)
+        self.evaluator.load(savepoint[0]["evaluator"])
     
