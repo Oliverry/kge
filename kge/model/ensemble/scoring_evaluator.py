@@ -51,6 +51,7 @@ class PlattScalingEvaluator(ScoringEvaluator):
         self.scalers = [PlattScaler(config, configuration_key) for _ in range(0, m)]
 
     def forward(self, scores: Tensor) -> Tensor:
+        states = [scaler.state_dict() for scaler in self.scalers]
         res = None
         t = torch.transpose(scores, 0, 1)
         for idx, scaler in enumerate(self.scalers):

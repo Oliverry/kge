@@ -30,13 +30,14 @@ class ScoringEnsemble(Ensemble):
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         scores = None
         for idx, model in enumerate(self.submodels):
-            model_scores = model.score_spo(s, p, o, direction)
+            model_scores = model.score_spo(s, p, o, direction).detach()
             model_scores = torch.unsqueeze(model_scores, dim=-1)
             if scores is None:
                 scores = model_scores
             else:
                 scores = torch.cat((scores, model_scores), 1)
-        return self.evaluator(scores)
+        res = self.evaluator(scores)
+        return res
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         scores = []
@@ -67,7 +68,7 @@ class ScoringEnsemble(Ensemble):
         col_scores = [torch.empty(len(self.submodels), s.size()[0]) for _ in range(0, col_size)]
         res = torch.empty(col_size, s.size()[0])
         for idx, model in enumerate(self.submodels):
-            model_scores = model.score_sp_po(s, p, o, entity_subset)
+            model_scores = model.score_sp_po(s, p, o, entity_subset).detach()
             model_scores = torch.transpose(model_scores, 0, 1)
             for col_idx in range(0, col_size):
                 col_scores[col_idx][idx] = model_scores[col_idx]
@@ -77,9 +78,6 @@ class ScoringEnsemble(Ensemble):
             res[idx] = col_res
         res = torch.transpose(res, 0, 1)
         return res
-
-    def combine(self, scores: Tensor):
-        pass
 
     def save(self):
         state = super().save()
