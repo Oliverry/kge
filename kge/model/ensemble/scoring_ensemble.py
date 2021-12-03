@@ -70,7 +70,7 @@ class ScoringEnsemble(Ensemble):
             model_scores = model.score_sp_po(s, p, o, entity_subset)
             model_scores = torch.transpose(model_scores, 0, 1)
             for col_idx in range(0, col_size):
-                col_scores[col_idx][idx] = model_scores[idx]
+                col_scores[col_idx][idx] = model_scores[col_idx]
         for idx in range(0, col_size):
             t = torch.transpose(col_scores[idx], 0, 1)
             col_res = self.evaluator(t)
@@ -82,9 +82,9 @@ class ScoringEnsemble(Ensemble):
         pass
 
     def save(self):
-        state_dict = super().save()
-        state_dict[0]["evaluator"] = self.evaluator.save()
-        return state_dict
+        state = super().save()
+        state[0]["evaluator"] = self.evaluator.save()
+        return state
 
     def load(self, savepoint):
         super().load(savepoint)
