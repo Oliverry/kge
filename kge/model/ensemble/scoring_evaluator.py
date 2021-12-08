@@ -63,7 +63,6 @@ class PlattScalingEvaluator(ScoringEvaluator):
             else:
                 res = torch.cat((res, tmp), 1)
         res = torch.mean(res, dim=1)
-        print(list(self.parameters()))
         return res
 
     def save(self):

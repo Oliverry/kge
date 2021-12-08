@@ -39,7 +39,6 @@ class ScoringEnsemble(Ensemble):
             else:
                 scores = torch.cat((scores, model_scores), 1)
         res = self.evaluator(scores)
-        # print(list(self.parameters()))
         return res
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:

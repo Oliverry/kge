@@ -21,22 +21,14 @@ class EmbeddingEnsemble(Ensemble):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
-        evaluator_str = self.get_option("evaluator")
-        if evaluator_str == "avg":
-            self.evaluator = AvgScoringEvaluator(config)
-        elif evaluator_str == "platt":
-            self.evaluator = PlattScalingEvaluator(config)
+        evaluator_str = self.get_option("dim_reduction")
+        if evaluator_str == "autoencoder":
+            self.evaluator = AutoencoderReduction(config)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        scores = None
+        s_embeds = [torch.empty(len(self.submodels), s.size()[0]) for _ in range(0, s.size()[0])]
         for idx, model in enumerate(self.submodels):
-            model_scores = model.score_spo(s, p, o, direction)
-            model_scores = torch.unsqueeze(model_scores, dim=-1)
-            if scores is None:
-                scores = model_scores
-            else:
-                scores = torch.cat((scores, model_scores), 1)
-        return self.evaluator(scores)
+            model.get_s_embedder().embed(s)
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         scores = []
