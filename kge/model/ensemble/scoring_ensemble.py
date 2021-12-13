@@ -29,8 +29,6 @@ class ScoringEnsemble(Ensemble):
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         scores = None
-        params = self.parameters()
-        params_rec = self.parameters(recurse=True)
         for idx, model in enumerate(self.submodels):
             model_scores = model.score_spo(s, p, o, direction).detach()
             model_scores = torch.unsqueeze(model_scores, dim=-1)

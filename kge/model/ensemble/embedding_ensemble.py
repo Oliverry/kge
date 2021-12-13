@@ -3,7 +3,7 @@ from torch import Tensor
 
 from kge import Config, Dataset
 from kge.model import Ensemble
-from kge.model.ensemble.scoring_evaluator import AvgScoringEvaluator, PlattScalingEvaluator
+from kge.model.ensemble.dim_reduction import AutoencoderReduction
 
 
 class EmbeddingEnsemble(Ensemble):
@@ -21,14 +21,20 @@ class EmbeddingEnsemble(Ensemble):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
-        evaluator_str = self.get_option("dim_reduction")
-        if evaluator_str == "autoencoder":
-            self.evaluator = AutoencoderReduction(config)
+        dim_reduction_str = self.get_option("dim_reduction")
+        if dim_reduction_str == "autoencoder":
+            self.dim_reduction = AutoencoderReduction(config)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        s_embeds = [torch.empty(len(self.submodels), s.size()[0]) for _ in range(0, s.size()[0])]
+        n = s.size()[0]
+        s_embeds = None
         for idx, model in enumerate(self.submodels):
-            model.get_s_embedder().embed(s)
+            embeds = model.get_s_embedder().embed(s)
+            embeds = embeds.view(n, 1, -1)
+            if s_embeds is None:
+                s_embeds = embeds
+            else:
+                torch.cat((s_embeds, embeds), 0)
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         scores = []

@@ -22,3 +22,4 @@ from kge.model.simple import SimplE
 from kge.model.reciprocal_relations_model import ReciprocalRelationsModel
 from kge.model.ensemble.ensemble import Ensemble
 from kge.model.ensemble.scoring_ensemble import ScoringEnsemble
+from kge.model.ensemble.embedding_ensemble import EmbeddingEnsemble

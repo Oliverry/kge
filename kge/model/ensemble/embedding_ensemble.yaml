@@ -1,6 +1,6 @@
 import: [lookup_embedder]
 
-scoring_ensemble:
+embedding_ensemble:
   class_name: EmbeddingEnsemble
   entity_embedder:
     type: lookup_embedder
@@ -9,8 +9,7 @@ scoring_ensemble:
     type: lookup_embedder
     +++: +++
   submodels: [transe]
-  evaluator: platt
+  dim_reduction: autoencoder
   l_norm: 1.
-  plattscaling:
-    num_models: 2
+
 
