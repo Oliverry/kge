@@ -11,7 +11,7 @@ import importlib
 
 
 def init_from(
-        class_name: str, modules: List[Union[str, types.ModuleType]], *args, **kwargs
+    class_name: str, modules: List[Union[str, types.ModuleType]], *args, **kwargs
 ):
     """Initializes class from its name and list of module names it might be part of.
 

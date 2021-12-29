@@ -15,7 +15,7 @@ class DimReductionBase(Configurable):
     def reduce_entities(self, t: Tensor):
         """
         Execute a dimensionality reduction on the tensor of the form n times m times dim_m,
-        where n is the number of entities, m is the number of submodels and dim_m is the specific
+        where n is the number of entities, m is the number of submodels and dim_m is the
         length of the model embedding dimension.
         :param t:
         :return:
@@ -25,7 +25,7 @@ class DimReductionBase(Configurable):
     def reduce_relations(self, t: Tensor):
         """
         Execute a dimensionality reduction on the tensor of the form n times m times dim_m,
-        where n is the number of relations, m is the number of submodels and dim_m is the specific
+        where n is the number of relations, m is the number of submodels and dim_m is the
         length of the model embedding dimension.
         :param t:
         :return:
@@ -33,6 +33,7 @@ class DimReductionBase(Configurable):
         raise NotImplementedError
 
 
+# use l2 norm for loss function
 class AutoencoderReduction(DimReductionBase):
 
     def __init__(self, config: Config, configuration_key=None):
@@ -41,18 +42,25 @@ class AutoencoderReduction(DimReductionBase):
         self.relation_model = Autoencoder(config, configuration_key)
 
     def reduce_entities(self, t: Tensor):
-        pass
+        n = t.size()[0]
+        entities = t.view(n, -1)  # transform tensor to format
+        entities = self.entity_model.reduce(entities)
+        return entities
 
     def reduce_relations(self, t: Tensor):
-        pass
+        n = t.size()[0]
+        relations = t.view(n, -1)  # transform tensor to format
+        relations = self.relation_model.reduce(relations)
+        return relations
 
 
+# TODO add regularization
 class Autoencoder(nn.Module, Configurable):
     def __init__(self, config: Config, configuration_key=None):
         super(Autoencoder, self).__init__()
         Configurable.__init__(self, config, configuration_key)
-        dim_in = 100  # self.get_option("dim_in")
-        dim_out = 50  # self.get_option("dim_out")
+        dim_in = 200  # self.get_option("dim_in")
+        dim_out = 100  # self.get_option("dim_out")
         num_layers = 3  # self.get_option("num_layers")
 
         layer_dims = [round(dim_in - n * ((dim_in - dim_out) / num_layers)) for n in range(0, num_layers)]

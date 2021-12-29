@@ -28,13 +28,27 @@ class EmbeddingEnsemble(Ensemble):
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         n = s.size()[0]
         s_embeds = None
+        p_embeds = None
+        o_embeds = None
         for idx, model in enumerate(self.submodels):
-            embeds = model.get_s_embedder().embed(s)
-            embeds = embeds.view(n, 1, -1)
+            model_s_embeds = model.get_s_embedder().embed(s)
+            model_s_embeds = model_s_embeds.view(n, 1, -1)
+            model_p_embeds = model.get_p_embedder().embed(p)
+            model_p_embeds = model_p_embeds.view(n, 1, -1)
+            model_o_embeds = model.get_o_embedder().embed(o)
+            model_o_embeds = model_o_embeds.view(n, 1, -1)
             if s_embeds is None:
-                s_embeds = embeds
+                s_embeds = model_s_embeds
+                p_embeds = model_p_embeds
+                o_embeds = model_o_embeds
             else:
-                torch.cat((s_embeds, embeds), 0)
+                s_embeds = torch.cat((s_embeds, model_s_embeds), 1)
+                p_embeds = torch.cat((p_embeds, model_p_embeds), 1)
+                o_embeds = torch.cat((o_embeds, model_o_embeds), 1)
+        s_embeds = self.dim_reduction.reduce_entities(s_embeds)
+        p_embeds = self.dim_reduction.reduce_relations(p_embeds)
+        o_embeds = self.dim_reduction.reduce_entities(o_embeds)
+        print("done")
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         scores = []
