@@ -12,4 +12,9 @@ embedding_ensemble:
   dim_reduction: autoencoder
   l_norm: 1.
 
+autoencoder:
+  dim_in: 200
+  dim_out: 100
+  num_layers: 3
+
 

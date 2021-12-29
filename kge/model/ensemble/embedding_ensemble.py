@@ -23,7 +23,7 @@ class EmbeddingEnsemble(Ensemble):
         )
         dim_reduction_str = self.get_option("dim_reduction")
         if dim_reduction_str == "autoencoder":
-            self.dim_reduction = AutoencoderReduction(config)
+            self.dim_reduction = AutoencoderReduction(config, "autoencoder")
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         n = s.size()[0]

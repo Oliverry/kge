@@ -59,9 +59,9 @@ class Autoencoder(nn.Module, Configurable):
     def __init__(self, config: Config, configuration_key=None):
         super(Autoencoder, self).__init__()
         Configurable.__init__(self, config, configuration_key)
-        dim_in = 200  # self.get_option("dim_in")
-        dim_out = 100  # self.get_option("dim_out")
-        num_layers = 3  # self.get_option("num_layers")
+        dim_in = self.get_option("dim_in")
+        dim_out = self.get_option("dim_out")
+        num_layers = self.get_option("num_layers")
 
         layer_dims = [round(dim_in - n * ((dim_in - dim_out) / num_layers)) for n in range(0, num_layers)]
         layer_dims.append(dim_out)
