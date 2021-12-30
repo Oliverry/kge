@@ -1,4 +1,5 @@
-from torch import nn
+import torch
+from torch import nn, Tensor
 
 from kge import Config, Dataset
 from kge.job import Job
@@ -9,12 +10,24 @@ class MultiLayerPerceptronScorer(RelationalScorer):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
+        dim_in = self.get_option("dim_in")
+        dim_t = self.get_option("dim_t")
         self._norm = self.get_option("l_norm")
-        self.linear1 = nn.Linear(128, 100)
-        self.linear2 = nn.Linear(100, 1)
+        self.linear1 = nn.Linear(dim_in, dim_t)  # embedding concatenation (spo) -> entitiy embedding size
+        self.tanh = nn.Tanh()
+        self.linear2 = nn.Linear(dim_t, 1)  # entity embedding size -> 1
+        self.sigmoid = nn.Sigmoid()
+
+    def score_emb_spo(self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor) -> Tensor:
+        embeds = torch.cat((s_emb, p_emb, o_emb), 1)
+        embeds = self.linear1(embeds)
+        embeds = self.tanh(embeds)
+        embeds = self.linear2(embeds)
+        scores = self.sigmoid(embeds)
+        return scores
 
 
-class MultiLayerPerceptron(KgeModel):
+class MultilayerPerceptron(KgeModel):
 
     def __init__(
             self,
@@ -33,12 +46,3 @@ class MultiLayerPerceptron(KgeModel):
 
     def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)
-
-        from kge.job import TrainingJobNegativeSampling
-
-        if (
-                isinstance(job, TrainingJobNegativeSampling)
-                and job.config.get("negative_sampling.implementation") == "auto"
-        ):
-            # TransE with batch currently tends to run out of memory, so we use triple.
-            job.config.set("negative_sampling.implementation", "triple", log=True)

@@ -32,8 +32,12 @@ class DimReductionBase(Configurable):
         """
         raise NotImplementedError
 
+    def train(self):
+        raise NotImplementedError
 
-# use l2 norm for loss function
+
+# TODO use l2 norm for loss function
+# TODO different configs for entitiy and relations reduction
 class AutoencoderReduction(DimReductionBase):
 
     def __init__(self, config: Config, configuration_key=None):
@@ -52,6 +56,9 @@ class AutoencoderReduction(DimReductionBase):
         relations = t.view(n, -1)  # transform tensor to format
         relations = self.relation_model.reduce(relations)
         return relations
+
+    def train(self):
+        pass
 
 
 # TODO add regularization
@@ -76,7 +83,7 @@ class Autoencoder(nn.Module, Configurable):
         for idx in reversed(range(0, num_layers)):
             decode_dict["linear" + str(idx)] = nn.Linear(layer_dims[idx + 1], layer_dims[idx])
             if idx > 0:
-                encode_dict["relu" + str(idx)] = nn.ReLU()
+                decode_dict["relu" + str(idx)] = nn.ReLU()
 
         self.encoder = torch.nn.Sequential(encode_dict)
         self.decoder = torch.nn.Sequential(decode_dict)
