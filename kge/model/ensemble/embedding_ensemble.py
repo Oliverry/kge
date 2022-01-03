@@ -26,7 +26,7 @@ class EmbeddingEnsemble(Ensemble):
             self.dim_reduction = AutoencoderReduction(config, "autoencoder")
 
         if config.get("job.type") == "train":
-            self.dim_reduction.train()
+            self.dim_reduction.train(self.submodels)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         n = s.size()[0]
