@@ -4,6 +4,7 @@ from torch import Tensor
 from kge import Config, Dataset
 from kge.model import Ensemble
 from kge.model.ensemble.dim_reduction import AutoencoderReduction
+from kge.model.ensemble.embedding_evaluator import KgeAdapter
 
 
 class EmbeddingEnsemble(Ensemble):
@@ -22,8 +23,12 @@ class EmbeddingEnsemble(Ensemble):
             init_for_load_only=init_for_load_only,
         )
         dim_reduction_str = self.get_option("dim_reduction")
+        evaluator_str = self.get_option("evaluator")
         if dim_reduction_str == "autoencoder":
             self.dim_reduction = AutoencoderReduction(config, "autoencoder")
+
+        if evaluator_str == "kge_adapter":
+            self.evaluator = KgeAdapter(dataset, config, "kge_adapter")
 
         if config.get("job.type") == "train":
             self.dim_reduction.train(self.submodels)
@@ -51,7 +56,8 @@ class EmbeddingEnsemble(Ensemble):
         s_embeds = self.dim_reduction.reduce_entities(s_embeds)
         p_embeds = self.dim_reduction.reduce_relations(p_embeds)
         o_embeds = self.dim_reduction.reduce_entities(o_embeds)
-        print("done")
+        scores = self.evaluator.score_spo(s_embeds, p_embeds, o_embeds, direction)
+        return scores
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         scores = []

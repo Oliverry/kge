@@ -10,7 +10,11 @@ embedding_ensemble:
     +++: +++
   submodels: [transe]
   dim_reduction: autoencoder
-  l_norm: 1.
+  evaluator: kge_adapter
+
+kge_adapter:
+  model: none
+  +++: +++
 
 autoencoder:
   dim_in: 200
