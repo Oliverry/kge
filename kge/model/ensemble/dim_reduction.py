@@ -8,10 +8,11 @@ from torch.utils.data import Dataset, DataLoader
 from kge import Configurable, Config
 
 
-class DimReductionBase(Configurable):
+class DimReductionBase(nn.Module, Configurable):
 
     def __init__(self, config: Config, configuration_key=None):
-        super(DimReductionBase, self).__init__(config, configuration_key)
+        Configurable.__init__(self, config, configuration_key)
+        nn.Module.__init__(self)
         pass
 
     def reduce_entities(self, t: Tensor):
@@ -34,7 +35,13 @@ class DimReductionBase(Configurable):
         """
         raise NotImplementedError
 
-    def train(self, models):
+    def train_dim_reduction(self, models):
+        raise NotImplementedError
+
+    def save(self):
+        raise NotImplementedError
+
+    def load(self, savepoint):
         raise NotImplementedError
 
 
@@ -70,12 +77,11 @@ class DimReductionDataset(Dataset):
         return self.data[idx]
 
 
-# TODO use l2 norm for loss function
 # TODO different configs for entity and relations reduction
 class AutoencoderReduction(DimReductionBase):
 
     def __init__(self, config: Config, configuration_key=None):
-        super(DimReductionBase, self).__init__(config, configuration_key)
+        DimReductionBase.__init__(self, config, configuration_key)
         self.entity_model = Autoencoder(config, configuration_key)
         self.relation_model = Autoencoder(config, configuration_key)
 
@@ -91,7 +97,7 @@ class AutoencoderReduction(DimReductionBase):
         relations = self.relation_model.reduce(relations)
         return relations
 
-    def train(self, models):
+    def train_dim_reduction(self, models):
         # create dataloader
         entity_dataloader = DataLoader(DimReductionDataset(models, "entity"), batch_size=10, shuffle=True)
         relation_dataloader = DataLoader(DimReductionDataset(models, "relation"), batch_size=10, shuffle=True)
@@ -106,7 +112,6 @@ class AutoencoderReduction(DimReductionBase):
         for epoch in range(epochs):
             loss_val = 0
             for entity_embeds in entity_dataloader:
-
                 # Reshaping the image to (-1, 784)
                 n = entity_embeds.size()[0]
                 entities = entity_embeds.view(n, -1)
@@ -134,7 +139,6 @@ class AutoencoderReduction(DimReductionBase):
         for epoch in range(epochs):
             loss_val = 0
             for relation_embeds in relation_dataloader:
-
                 # Reshaping the image to (-1, 784)
                 n = relation_embeds.size()[0]
                 entities = relation_embeds.view(n, -1)
@@ -154,6 +158,14 @@ class AutoencoderReduction(DimReductionBase):
 
                 loss_val += loss.item()
             print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss_val))
+
+    def save(self):
+        state = {"entity": self.entity_model.state_dict(), "relation": self.relation_model.state_dict()}
+        return state
+
+    def load(self, savepoint):
+        self.entity_model.load_state_dict(savepoint["entity"])
+        self.relation_model.load_state_dict(savepoint["relation"])
 
 
 # TODO add regularization
@@ -189,5 +201,5 @@ class Autoencoder(nn.Module, Configurable):
         return decoded
 
     def reduce(self, x):
-        reduced = self.encoder(x)
-        return reduced
+        encoded = self.encoder(x)
+        return encoded

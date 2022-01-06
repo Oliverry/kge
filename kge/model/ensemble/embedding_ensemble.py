@@ -31,7 +31,7 @@ class EmbeddingEnsemble(Ensemble):
             self.evaluator = KgeAdapter(dataset, config, "kge_adapter")
 
         if config.get("job.type") == "train":
-            self.dim_reduction.train(self.submodels)
+            self.dim_reduction.train_dim_reduction(self.submodels)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         n = s.size()[0]
@@ -99,8 +99,3 @@ class EmbeddingEnsemble(Ensemble):
         res = torch.transpose(res, 0, 1)
         return res
 
-    def save(self):
-        pass
-
-    def load(self, savepoint):
-        pass

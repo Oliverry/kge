@@ -79,12 +79,4 @@ class ScoringEnsemble(Ensemble):
         res = torch.transpose(res, 0, 1)
         return res
 
-    def save(self):
-        state = super().save()
-        state[0]["evaluator"] = self.evaluator.save()
-        return state
-
-    def load(self, savepoint):
-        super().load(savepoint)
-        self.evaluator.load(savepoint[0]["evaluator"])
     
