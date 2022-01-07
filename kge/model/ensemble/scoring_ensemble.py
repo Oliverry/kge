@@ -64,6 +64,7 @@ class ScoringEnsemble(Ensemble):
     def score_sp_po(
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
     ) -> Tensor:
+        # TODO consider entity subset being none
         col_size = 2*entity_subset.size()[0]
         col_scores = [torch.empty(len(self.submodels), s.size()[0]) for _ in range(0, col_size)]
         res = torch.empty(col_size, s.size()[0])
