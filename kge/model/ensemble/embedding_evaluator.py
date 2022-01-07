@@ -13,22 +13,17 @@ class EmbeddingEvaluator(torch.nn.Module, Configurable):
         Configurable.__init__(self, config, configuration_key)
         torch.nn.Module.__init__(self)
 
-    def score_spo(self, s: Tensor, p: Tensor, o: Tensor) -> Tensor:
+    def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         """
         Takes tensors of embeddings of the form n times E, where n is the number of triples
         and E is dimensionality of the embeddings.
         Then the embeddings are combined row wise.
+        :param combine:
         :param s:
         :param p:
         :param o:
         :return:
         """
-        raise NotImplementedError
-
-    def save(self):
-        raise NotImplementedError
-
-    def load(self, savepoint):
         raise NotImplementedError
 
 
