@@ -44,9 +44,11 @@ class KgeAdapter(EmbeddingEvaluator):
         model_config.load_options(model_options, create=True)
         self.model = KgeModel.create(model_config, dataset)
 
-    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        res = self.model.get_scorer().score_emb(s, p, o, combine="spo")
-        return res.view(-1)
+    def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
+        res = self.model.get_scorer().score_emb(s, p, o, combine=combine)
+        if combine == "spo":
+            res = res.view(-1)
+        return res
 
     def save(self):
         return self.model.save()

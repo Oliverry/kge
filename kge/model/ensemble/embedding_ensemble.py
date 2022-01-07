@@ -56,7 +56,7 @@ class EmbeddingEnsemble(Ensemble):
         s_embeds = self.dim_reduction.reduce_entities(s_embeds)
         p_embeds = self.dim_reduction.reduce_relations(p_embeds)
         o_embeds = self.dim_reduction.reduce_entities(o_embeds)
-        scores = self.evaluator.score_spo(s_embeds, p_embeds, o_embeds, direction)
+        scores = self.evaluator.score_emb(s_embeds, p_embeds, o_embeds, "spo")
         return scores
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
@@ -127,8 +127,8 @@ class EmbeddingEnsemble(Ensemble):
         entity_subset_embeds = self.dim_reduction.reduce_entities(entity_subset_embeds)
 
         # applying evaluator
-        sp_scores = self.evaluator.score_spo(s_embeds, p_embeds, entity_subset_embeds, "sp_")
-        po_scores = self.evaluator.score_spo(entity_subset_embeds, p_embeds, o_embeds, "_po")
+        sp_scores = self.evaluator.score_emb(s_embeds, p_embeds, entity_subset_embeds, "sp_")
+        po_scores = self.evaluator.score_emb(entity_subset_embeds, p_embeds, o_embeds, "_po")
 
         res = torch.cat((sp_scores, po_scores), dim=1)
         return res
