@@ -38,11 +38,24 @@ class DimReductionBase(nn.Module, Configurable):
     def train_dim_reduction(self, models):
         raise NotImplementedError
 
-    def save(self):
-        raise NotImplementedError
 
-    def load(self, savepoint):
-        raise NotImplementedError
+class ConcatenationReduction(DimReductionBase):
+
+    def __init__(self, config, configuration_key):
+        DimReductionBase.__init__(self, config, configuration_key)
+
+    def reduce_entities(self, t: Tensor):
+        n = t.size()[0]
+        res = t.view(n, -1)
+        return res
+
+    def reduce_relations(self, t: Tensor):
+        n = t.size()[0]
+        res = t.view(n, -1)
+        return res
+
+    def train_dim_reduction(self, models):
+        pass
 
 
 class DimReductionDataset(Dataset):
@@ -55,7 +68,6 @@ class DimReductionDataset(Dataset):
         """
         self.data = None
         for idx, model in enumerate(models):
-            m_embeds = None
             if mode == "entity":
                 # assuming subject and object embedder are the same
                 m_embeds = model.get_s_embedder().embed_all().detach()
@@ -102,52 +114,29 @@ class AutoencoderReduction(DimReductionBase):
         entity_dataloader = DataLoader(DimReductionDataset(models, "entity"), batch_size=10, shuffle=True)
         relation_dataloader = DataLoader(DimReductionDataset(models, "relation"), batch_size=10, shuffle=True)
 
-        # Validation using MSE Loss function
-        loss_function = torch.nn.MSELoss()
-
-        # Using an Adam Optimizer with lr = 0.1
-        optimizer = torch.optim.Adam(self.entity_model.parameters(), lr=1e-1, weight_decay=1e-8)
-        epochs = 20
         print("Training entity autoencoder")
-        for epoch in range(epochs):
-            loss_val = 0
-            for entity_embeds in entity_dataloader:
-                # Reshaping the image to (-1, 784)
-                n = entity_embeds.size()[0]
-                entities = entity_embeds.view(n, -1)
+        self.train_model(entity_dataloader, self.entity_model)
 
-                # Output of Autoencoder
-                reconstructed = self.entity_model(entities)
-
-                # Calculating the loss function
-                loss = loss_function(reconstructed, entities)
-
-                # The gradients are set to zero,
-                # then the gradient is computed and stored.
-                # .step() performs parameter update
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                loss_val += loss.item()
-            print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss_val))
-
-        # Using an Adam Optimizer with lr = 0.1
-        optimizer = torch.optim.Adam(self.relation_model.parameters(), lr=1e-1, weight_decay=1e-8)
-        epochs = 20
         print("Training relation autoencoder")
+        self.train_model(relation_dataloader, self.relation_model)
+
+    def train_model(self, dataloader, model):
+        # validation using MSE Loss function
+        loss_function = torch.nn.MSELoss()
+        # using an Adam Optimizer with lr = 0.1
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-1, weight_decay=1e-8)
+        epochs = 20
         for epoch in range(epochs):
             loss_val = 0
-            for relation_embeds in relation_dataloader:
-                # Reshaping the image to (-1, 784)
-                n = relation_embeds.size()[0]
-                entities = relation_embeds.view(n, -1)
+            for batch in dataloader:
+                n = batch.size()[0]
+                embeds = batch.view(n, -1)
 
                 # Output of Autoencoder
-                reconstructed = self.relation_model(entities)
+                reconstructed = model(embeds)
 
                 # Calculating the loss function
-                loss = loss_function(reconstructed, entities)
+                loss = loss_function(reconstructed, embeds)
 
                 # The gradients are set to zero,
                 # then the gradient is computed and stored.
@@ -158,14 +147,6 @@ class AutoencoderReduction(DimReductionBase):
 
                 loss_val += loss.item()
             print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss_val))
-
-    def save(self):
-        state = {"entity": self.entity_model.state_dict(), "relation": self.relation_model.state_dict()}
-        return state
-
-    def load(self, savepoint):
-        self.entity_model.load_state_dict(savepoint["entity"])
-        self.relation_model.load_state_dict(savepoint["relation"])
 
 
 # TODO add regularization
