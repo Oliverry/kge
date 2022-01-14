@@ -4,7 +4,7 @@ from torch import Tensor
 from kge import Config, Dataset
 from kge.model import Ensemble
 from kge.model.ensemble.dim_reduction import AutoencoderReduction, ConcatenationReduction
-from kge.model.ensemble.embedding_evaluator import KgeAdapter
+from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 
 
 class EmbeddingEnsemble(Ensemble):
@@ -31,6 +31,8 @@ class EmbeddingEnsemble(Ensemble):
 
         if evaluator_str == "kge_adapter":
             self.evaluator = KgeAdapter(dataset, config, "kge_adapter")
+        elif evaluator_str == "finetuning":
+            self.evaluator = FineTuning(dataset, config, "finetuning")
 
         if config.get("job.type") == "train":
             self.dim_reduction.train_dim_reduction(self.submodels)
@@ -41,11 +43,11 @@ class EmbeddingEnsemble(Ensemble):
         p_embeds = None
         o_embeds = None
         for idx, model in enumerate(self.submodels):
-            model_s_embeds = model.get_s_embedder().embed(s)
+            model_s_embeds = model.get_s_embedder().embed(s).detach()
             model_s_embeds = model_s_embeds.view(n, 1, -1)
-            model_p_embeds = model.get_p_embedder().embed(p)
+            model_p_embeds = model.get_p_embedder().embed(p).detach()
             model_p_embeds = model_p_embeds.view(n, 1, -1)
-            model_o_embeds = model.get_o_embedder().embed(o)
+            model_o_embeds = model.get_o_embedder().embed(o).detach()
             model_o_embeds = model_o_embeds.view(n, 1, -1)
             if s_embeds is None:
                 s_embeds = model_s_embeds

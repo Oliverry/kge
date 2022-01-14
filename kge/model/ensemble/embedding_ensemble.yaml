@@ -10,7 +10,7 @@ embedding_ensemble:
     +++: +++
   submodels: [transe]
   dim_reduction: autoencoder
-  evaluator: kge_adapter
+  evaluator: finetuning
 
 kge_adapter:
   model: none
@@ -20,5 +20,10 @@ autoencoder:
   dim_in: 200
   dim_out: 100
   num_layers: 3
+
+finetuning:
+  num_layers: 3
+  entity_dim: 200
+  relation_dim: 200
 
 
