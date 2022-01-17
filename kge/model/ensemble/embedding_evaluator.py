@@ -48,6 +48,11 @@ class KgeAdapter(EmbeddingEvaluator):
 
 
 class FineTuning(EmbeddingEvaluator):
+    """
+    Finetuning model uses separate neural networks for entities and relations.
+    The dimensionality of the output equals the dimensionality of the input
+    KgeAdapter is used to apply the scoring function.
+    """
 
     def __init__(self, dataset: Dataset, config: Config, configuration_key=None):
         EmbeddingEvaluator.__init__(self, config, configuration_key)

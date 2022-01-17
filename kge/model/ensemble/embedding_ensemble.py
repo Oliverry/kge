@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 from torch import Tensor
 
@@ -5,6 +7,7 @@ from kge import Config, Dataset
 from kge.model import Ensemble
 from kge.model.ensemble.dim_reduction import AutoencoderReduction, ConcatenationReduction
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
+from kge.model.kge_model import KgeBase
 
 
 class EmbeddingEnsemble(Ensemble):

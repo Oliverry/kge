@@ -1,13 +1,3 @@
-import: [lookup_embedder]
-
 ensemble:
   class_name: Ensemble
-  entity_embedder:
-    type: lookup_embedder
-    +++: +++
-  relation_embedder:
-    type: lookup_embedder
-    +++: +++
-  submodels: [transe]
-  l_norm: 1.
 
