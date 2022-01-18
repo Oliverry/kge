@@ -1,7 +1,5 @@
-from typing import List
-
 import torch
-from torch import Tensor, nn
+from torch import Tensor
 
 from kge import Config, Dataset
 from kge.model import Ensemble

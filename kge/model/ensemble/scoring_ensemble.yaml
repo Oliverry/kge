@@ -1,16 +1,7 @@
-import: [lookup_embedder]
-
 scoring_ensemble:
   class_name: ScoringEnsemble
-  entity_embedder:
-    type: lookup_embedder
-    +++: +++
-  relation_embedder:
-    type: lookup_embedder
-    +++: +++
-  submodels: [transe]
+  submodels: [transe,complex]
   evaluator: platt
-  l_norm: 1.
   plattscaling:
     num_models: 2
 
