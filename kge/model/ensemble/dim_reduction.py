@@ -1,6 +1,5 @@
 from collections import OrderedDict
 
-import numpy as np
 import torch
 from torch import nn, Tensor
 from torch.utils.data import Dataset, DataLoader
@@ -13,7 +12,6 @@ class DimReductionBase(nn.Module, Configurable):
     def __init__(self, config: Config, configuration_key=None):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
-        pass
 
     def reduce_entities(self, t: Tensor):
         """

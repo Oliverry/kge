@@ -115,14 +115,14 @@ class EmbeddingEnsemble(Ensemble):
         obj_emb_list = []
         for model in self.submodels:
             if model.get_s_embedder() is model.get_o_embedder():
-                entity_emb = fetch_embedding(model, "s", entity_subset)
-                sub_emb_list.append(entity_emb)
-                obj_emb_list.append(entity_emb)
+                model_emb = fetch_embedding(model, "s", entity_subset)
+                sub_emb_list.append(model_emb)
+                obj_emb_list.append(model_emb)
             else:
-                sub_emb = fetch_embedding(model, "s", entity_subset)
-                obj_emb = fetch_embedding(model, "o", entity_subset)
-                sub_emb_list.append(sub_emb)
-                obj_emb_list.append(obj_emb)
+                model_sub_emb = fetch_embedding(model, "s", entity_subset)
+                model_obj_emb = fetch_embedding(model, "o", entity_subset)
+                sub_emb_list.append(model_sub_emb)
+                obj_emb_list.append(model_obj_emb)
         sub_emb = torch.cat(sub_emb_list, dim=1)
         obj_emb = torch.cat(obj_emb_list, dim=1)
         sub_emb = self.dim_reduction.reduce_entities(sub_emb)

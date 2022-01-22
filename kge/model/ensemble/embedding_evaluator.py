@@ -8,11 +8,11 @@ from kge import Configurable, Config, Dataset
 from kge.model.kge_model import KgeModel
 
 
-class EmbeddingEvaluator(torch.nn.Module, Configurable):
+class EmbeddingEvaluator(nn.Module, Configurable):
 
     def __init__(self, config: Config, configuration_key=None):
         Configurable.__init__(self, config, configuration_key)
-        torch.nn.Module.__init__(self)
+        nn.Module.__init__(self)
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         """
@@ -30,6 +30,7 @@ class EmbeddingEvaluator(torch.nn.Module, Configurable):
 
 class KgeAdapter(EmbeddingEvaluator):
 
+    # TODO create reciprocal relations model for better accuracy (some models use them as well)?
     def __init__(self, dataset: Dataset, config: Config, configuration_key=None):
         EmbeddingEvaluator.__init__(self, config, configuration_key)
         model_name = self.get_option("model")

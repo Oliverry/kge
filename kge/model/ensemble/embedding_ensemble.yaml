@@ -1,10 +1,8 @@
-import: [lookup_embedder]
-
 embedding_ensemble:
   class_name: EmbeddingEnsemble
   submodels: [transe, complex]
   dim_reduction: autoencoder
-  evaluator: finetuning
+  evaluator: kge_adapter
 
 kge_adapter:
   model: none
