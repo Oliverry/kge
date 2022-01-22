@@ -10,8 +10,8 @@ class SmeScorer(RelationalScorer):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
-        ent_emb_dim = self.get_option("entity_embedder.dim")
-        rel_emb_dim = self.get_option("relation_embedder.dim")
+        ent_emb_dim = 256  # self.get_option("entity_embedder.dim")
+        rel_emb_dim = 256  # self.get_option("relation_embedder.dim")
         self.emb_dim = self.get_option("emb_dim")
         self.sp_linear = torch.nn.Linear(ent_emb_dim + rel_emb_dim, self.emb_dim)
         self.op_linear = torch.nn.Linear(rel_emb_dim + ent_emb_dim, self.emb_dim)

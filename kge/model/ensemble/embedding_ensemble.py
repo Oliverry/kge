@@ -7,24 +7,38 @@ from kge import Config, Dataset
 from kge.model import Ensemble
 from kge.model.ensemble.dim_reduction import AutoencoderReduction, ConcatenationReduction
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
-from kge.model.kge_model import KgeBase, KgeModel
+from kge.model.kge_model import KgeModel
 
 
-def fetch_embedding(model: KgeModel, part, idxs):
+# TODO maybe do code optimization
+def fetch_embedding(model: KgeModel, embedder, idxs: Tensor = None) -> Tensor:
     """
-
-    :param idxs:
-    :param model:
-    :param part: Can be "s", "p", "o"
-    :return:
+    Fetches the embedding of a given model and indexes using the specified embedder.
+    :param model: The specified model
+    :param idxs: Given indexes
+    :param embedder: Can be "s", "p", "o"
+    :return: Tensor of embeddings with shape n x 1 x E
     """
-    if part == "s":
-        out = model.get_s_embedder().embed(idxs)
-    elif part == "o":
-        out = model.get_o_embedder().embed(idxs)
-    elif part == "p":
-        out = model.get_p_embedder().embed(idxs)
-    return out
+    if embedder == "s":
+        if idxs is None:
+            out = model.get_s_embedder().embed_all()
+        else:
+            out = model.get_s_embedder().embed(idxs)
+    elif embedder == "o":
+        if idxs is None:
+            out = model.get_o_embedder().embed_all()
+        else:
+            out = model.get_o_embedder().embed(idxs)
+    elif embedder == "p":
+        if idxs is None:
+            out = model.get_p_embedder().embed_all()
+        else:
+            out = model.get_p_embedder().embed(idxs)
+    else:
+        raise Exception("embedder has to be specified.")  # TODO specifiy exception
+    n = out.size()[0]
+    out = out.view(n, 1, -1)
+    return out.detach()
 
 
 class EmbeddingEnsemble(Ensemble):
@@ -58,121 +72,80 @@ class EmbeddingEnsemble(Ensemble):
             self.dim_reduction.train_dim_reduction(self.submodels)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        n = s.size()[0]
-        s_embeds = None
-        p_embeds = None
-        o_embeds = None
-        for idx, model in enumerate(self.submodels):
-            model_s_embeds = model.get_s_embedder().embed(s).detach()
-            model_s_embeds = model_s_embeds.view(n, 1, -1)
-            model_p_embeds = model.get_p_embedder().embed(p).detach()
-            model_p_embeds = model_p_embeds.view(n, 1, -1)
-            model_o_embeds = model.get_o_embedder().embed(o).detach()
-            model_o_embeds = model_o_embeds.view(n, 1, -1)
-            if s_embeds is None:
-                s_embeds = model_s_embeds
-                p_embeds = model_p_embeds
-                o_embeds = model_o_embeds
-            else:
-                s_embeds = torch.cat((s_embeds, model_s_embeds), 1)
-                p_embeds = torch.cat((p_embeds, model_p_embeds), 1)
-                o_embeds = torch.cat((o_embeds, model_o_embeds), 1)
-        s_embeds = self.dim_reduction.reduce_entities(s_embeds)
-        p_embeds = self.dim_reduction.reduce_relations(p_embeds)
-        o_embeds = self.dim_reduction.reduce_entities(o_embeds)
-        scores = self.evaluator.score_emb(s_embeds, p_embeds, o_embeds, "spo")
+        s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
+        s_emb = self.dim_reduction.reduce_entities(s_emb)
+        p_emb = self.dim_reduction.reduce_relations(p_emb)
+        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "spo")
         return scores
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
-        # not implemented
-        scores = []
-        for idx, model in enumerate(self.submodels):
-            model_scores = model.score_sp(s, p)
-            model_scores = torch.unsqueeze(model_scores, dim=0)
-            model_scores = torch.transpose(model_scores, 0, 1)
-            scores.append(model_scores)
-        for idx in range(0, len(self.submodels)):
-            pass
-        return self.evaluator(scores)
+        s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
+        s_emb = self.dim_reduction.reduce_entities(s_emb)
+        p_emb = self.dim_reduction.reduce_relations(p_emb)
+        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "sp_")
+        return scores
 
     def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
-        # not implemented
-        scores = None
-        for idx, model in enumerate(self.submodels):
-            model_scores = model.score_po(p, o)
-            model_scores = torch.unsqueeze(model_scores, dim=0)
-            if scores is None:
-                scores = model_scores
-            else:
-                scores = torch.cat((scores, model_scores), 0)
-        return self.evaluator(scores)
+        s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
+        s_emb = self.dim_reduction.reduce_entities(s_emb)
+        p_emb = self.dim_reduction.reduce_relations(p_emb)
+        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "_po")
+        return scores
 
-    def score_sp_po(
-            self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
-    ) -> Tensor:
-        # embed s, p, o
-        n = s.size()[0]
-        s_embeds = None
-        p_embeds = None
-        o_embeds = None
-        for idx, model in enumerate(self.submodels):
-            model_s_embeds = model.get_s_embedder().embed(s)
-            model_s_embeds = model_s_embeds.view(n, 1, -1)
-            model_p_embeds = model.get_p_embedder().embed(p)
-            model_p_embeds = model_p_embeds.view(n, 1, -1)
-            model_o_embeds = model.get_o_embedder().embed(o)
-            model_o_embeds = model_o_embeds.view(n, 1, -1)
-            if s_embeds is None:
-                s_embeds = model_s_embeds
-                p_embeds = model_p_embeds
-                o_embeds = model_o_embeds
-            else:
-                s_embeds = torch.cat((s_embeds, model_s_embeds), 1)
-                p_embeds = torch.cat((p_embeds, model_p_embeds), 1)
-                o_embeds = torch.cat((o_embeds, model_o_embeds), 1)
+    def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
+        s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
+        s_emb = self.dim_reduction.reduce_entities(s_emb)
+        p_emb = self.dim_reduction.reduce_relations(p_emb)
+        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "s_o")
+        return scores
 
-        # embed entity subset, assuming s embedder and o embedder are the same
-        entity_subset_embeds = None
-        for idx, model in enumerate(self.submodels):
-            if entity_subset is not None:
-                model_s_embeds = model.get_s_embedder().embed(entity_subset)
-            else:
-                model_s_embeds = model.get_s_embedder().embed_all()
-            m = model_s_embeds.size()[0]
-            model_s_embeds = model_s_embeds.view(m, 1, -1)
-            if entity_subset_embeds is None:
-                entity_subset_embeds = model_s_embeds
-            else:
-                entity_subset_embeds = torch.cat((entity_subset_embeds, model_s_embeds), 1)
-        # dim reduction
-        s_embeds = self.dim_reduction.reduce_entities(s_embeds)
-        p_embeds = self.dim_reduction.reduce_relations(p_embeds)
-        o_embeds = self.dim_reduction.reduce_entities(o_embeds)
-        entity_subset_embeds = self.dim_reduction.reduce_entities(entity_subset_embeds)
+    def score_sp_po(self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None) -> Tensor:
+        # fetch and reduce model embeddings
+        s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
+        s_emb = self.dim_reduction.reduce_entities(s_emb)
+        p_emb = self.dim_reduction.reduce_relations(p_emb)
+        o_emb = self.dim_reduction.reduce_entities(o_emb)
 
-        # applying evaluator
-        sp_scores = self.evaluator.score_emb(s_embeds, p_embeds, entity_subset_embeds, "sp_")
-        po_scores = self.evaluator.score_emb(entity_subset_embeds, p_embeds, o_embeds, "_po")
+        # fetch and reduce additional entity subset
+        sub_emb_list = []
+        obj_emb_list = []
+        for model in self.submodels:
+            if model.get_s_embedder() is model.get_o_embedder():
+                entity_emb = fetch_embedding(model, "s", entity_subset)
+                sub_emb_list.append(entity_emb)
+                obj_emb_list.append(entity_emb)
+            else:
+                sub_emb = fetch_embedding(model, "s", entity_subset)
+                obj_emb = fetch_embedding(model, "o", entity_subset)
+                sub_emb_list.append(sub_emb)
+                obj_emb_list.append(obj_emb)
+        sub_emb = torch.cat(sub_emb_list, dim=1)
+        obj_emb = torch.cat(obj_emb_list, dim=1)
+        sub_emb = self.dim_reduction.reduce_entities(sub_emb)
+        obj_emb = self.dim_reduction.reduce_relations(obj_emb)
+
+        sp_scores = self.evaluator.score_emb(s_emb, p_emb, obj_emb, "sp_")
+        po_scores = self.evaluator.score_emb(sub_emb, p_emb, o_emb, "_po")
 
         res = torch.cat((sp_scores, po_scores), dim=1)
         return res
 
-    def fetch_triple_embeddings(self, s, p, o):
-        n = s.size()[0]
-        s_embed_list = []
-        p_embed_list = []
-        o_embed_list = []
-        for idx, model in enumerate(self.submodels):
-            model_s_embeds = fetch_embedding(model, "s", s)
-            model_s_embeds = model_s_embeds.view(n, 1, -1)
-            model_p_embeds = model.get_p_embedder().embed(p)
-            model_p_embeds = model_p_embeds.view(n, 1, -1)
-            model_o_embeds = model.get_o_embedder().embed(o)
-            model_o_embeds = model_o_embeds.view(n, 1, -1)
-            s_embed_list.append(model_s_embeds)
-            p_embed_list.append(model_p_embeds)
-            o_embed_list.append(model_o_embeds)
-        s_embeds = torch.stack(s_embed_list, dim=1)
-        p_embeds = torch.stack(p_embed_list, dim=1)
-        o_embeds = torch.stack(o_embed_list, dim=1)
+    def fetch_model_embeddings(self, s: Tensor = None, p: Tensor = None, o: Tensor = None) -> (Tensor, Tensor, Tensor):
+        s_emb_list = []
+        p_emb_list = []
+        o_emb_list = []
+        for model in self.submodels:
+            model_s_emb = fetch_embedding(model, "s", s)
+            model_p_emb = fetch_embedding(model, "p", p)
+            model_o_emb = fetch_embedding(model, "o", o)
+            s_emb_list.append(model_s_emb)
+            p_emb_list.append(model_p_emb)
+            o_emb_list.append(model_o_emb)
+        s_embeds = torch.cat(s_emb_list, dim=1)
+        p_embeds = torch.cat(p_emb_list, dim=1)
+        o_embeds = torch.cat(o_emb_list, dim=1)
         return s_embeds, p_embeds, o_embeds
