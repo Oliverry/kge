@@ -28,26 +28,21 @@ class ScoringEnsemble(Ensemble):
             self.evaluator = PlattScalingEvaluator(config)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        scores = None
-        for idx, model in enumerate(self.submodels):
+        self.score_sp(s, p)
+        scores_list = []
+        for model in self.submodels:
             model_scores = model.score_spo(s, p, o, direction).detach()
-            model_scores = torch.unsqueeze(model_scores, dim=-1)
-            if scores is None:
-                scores = model_scores
-            else:
-                scores = torch.cat((scores, model_scores), 1)
+            scores_list.append(model_scores)
+        scores = torch.stack(scores_list, dim=1)
         res = self.evaluator(scores)
         return res
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
-        scores = []
+        scores_list = []
         for idx, model in enumerate(self.submodels):
-            model_scores = model.score_sp(s, p)
-            model_scores = torch.unsqueeze(model_scores, dim=0)
-            model_scores = torch.transpose(model_scores, 0, 1)
-            scores.append(model_scores)
-        for idx in range(0, len(self.submodels)):
-            pass
+            model_scores = model.score_sp(s, p, o).detach()
+            scores_list.append(model_scores)
+        scores = torch.stack(scores_list, dim=2)
         return self.evaluator(scores)
 
     def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
@@ -60,6 +55,9 @@ class ScoringEnsemble(Ensemble):
             else:
                 scores = torch.cat((scores, model_scores), 0)
         return self.evaluator(scores)
+
+    def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
+        pass
 
     def score_sp_po(
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None

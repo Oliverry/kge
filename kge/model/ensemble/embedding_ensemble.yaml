@@ -2,13 +2,7 @@ import: [lookup_embedder]
 
 embedding_ensemble:
   class_name: EmbeddingEnsemble
-  entity_embedder:
-    type: lookup_embedder
-    +++: +++
-  relation_embedder:
-    type: lookup_embedder
-    +++: +++
-  submodels: [transe]
+  submodels: [transe, complex]
   dim_reduction: autoencoder
   evaluator: finetuning
 

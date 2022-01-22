@@ -7,7 +7,24 @@ from kge import Config, Dataset
 from kge.model import Ensemble
 from kge.model.ensemble.dim_reduction import AutoencoderReduction, ConcatenationReduction
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
-from kge.model.kge_model import KgeBase
+from kge.model.kge_model import KgeBase, KgeModel
+
+
+def fetch_embedding(model: KgeModel, part, idxs):
+    """
+
+    :param idxs:
+    :param model:
+    :param part: Can be "s", "p", "o"
+    :return:
+    """
+    if part == "s":
+        out = model.get_s_embedder().embed(idxs)
+    elif part == "o":
+        out = model.get_o_embedder().embed(idxs)
+    elif part == "p":
+        out = model.get_p_embedder().embed(idxs)
+    return out
 
 
 class EmbeddingEnsemble(Ensemble):
@@ -140,3 +157,22 @@ class EmbeddingEnsemble(Ensemble):
         res = torch.cat((sp_scores, po_scores), dim=1)
         return res
 
+    def fetch_triple_embeddings(self, s, p, o):
+        n = s.size()[0]
+        s_embed_list = []
+        p_embed_list = []
+        o_embed_list = []
+        for idx, model in enumerate(self.submodels):
+            model_s_embeds = fetch_embedding(model, "s", s)
+            model_s_embeds = model_s_embeds.view(n, 1, -1)
+            model_p_embeds = model.get_p_embedder().embed(p)
+            model_p_embeds = model_p_embeds.view(n, 1, -1)
+            model_o_embeds = model.get_o_embedder().embed(o)
+            model_o_embeds = model_o_embeds.view(n, 1, -1)
+            s_embed_list.append(model_s_embeds)
+            p_embed_list.append(model_p_embeds)
+            o_embed_list.append(model_o_embeds)
+        s_embeds = torch.stack(s_embed_list, dim=1)
+        p_embeds = torch.stack(p_embed_list, dim=1)
+        o_embeds = torch.stack(o_embed_list, dim=1)
+        return s_embeds, p_embeds, o_embeds

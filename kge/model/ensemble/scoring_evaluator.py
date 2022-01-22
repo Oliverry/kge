@@ -4,7 +4,7 @@ from torch import Tensor, nn
 from kge import Configurable, Config
 
 
-class ScoringEvaluator(torch.nn.Module, Configurable):
+class ScoringEvaluator(nn.Module, Configurable):
 
     def __init__(self, config: Config, configuration_key=None):
         Configurable.__init__(self, config, configuration_key)
@@ -12,11 +12,19 @@ class ScoringEvaluator(torch.nn.Module, Configurable):
 
     def forward(self, scores: Tensor) -> Tensor:
         """
-        Takes a tensor of scores of the form n times E, where n is the number of spo scores
-        and E is the number of ensemble approaches.
-        Then the scores are combined row wise
         :param scores: Tensor of scores
         :return: Combined tensor of scores
+        """
+        raise NotImplementedError
+
+    def evaluate(self, scores: Tensor, dim=0):
+        """
+        Takes a tensor of scores of the form n times E, where n is the number of spo triples
+        and E is the number of models.
+        Then the scores are combined row wise
+        :param scores:
+        :param dim:
+        :return:
         """
         raise NotImplementedError
 
@@ -30,6 +38,9 @@ class AvgScoringEvaluator(ScoringEvaluator):
         res = torch.mean(scores, dim=1)
         return res
 
+    def evaluate(self, scores: Tensor, dim=0):
+        pass
+
 
 class PlattScalingEvaluator(ScoringEvaluator):
 
@@ -39,8 +50,8 @@ class PlattScalingEvaluator(ScoringEvaluator):
         self.scalers = nn.ModuleList([PlattScaler(config, configuration_key) for _ in range(0, m)])
 
     def forward(self, scores: Tensor) -> Tensor:
-        states = [scaler.state_dict() for scaler in self.scalers]
         res = None
+        m = len(scores.size())
         t = torch.transpose(scores, 0, 1)
         for idx, scaler in enumerate(self.scalers):
             tmp = t[idx]

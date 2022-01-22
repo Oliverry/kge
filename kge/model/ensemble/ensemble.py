@@ -7,7 +7,7 @@ from torch import Tensor
 from kge import Config, Dataset
 from kge.job import Job
 from kge.misc import pretrained_model_dir
-from kge.model.kge_model import KgeModel, KgeEmbedder, RelationalScorer
+from kge.model.kge_model import KgeModel, KgeEmbedder, RelationalScorer, KgeBase
 from kge.util import load_checkpoint
 
 
@@ -70,16 +70,17 @@ class Ensemble(KgeModel):
         :param kwargs:
         :return:
         """
-        return []
+        p = KgeBase.penalty(self, **kwargs)
+        return p
 
     def get_s_embedder(self) -> KgeEmbedder:
-        raise Exception("The ensemble model does not own a subject embedder.")
+        raise Exception("The ensemble model does not support an own subject embedder.")
 
     def get_o_embedder(self) -> KgeEmbedder:
-        raise Exception("The ensemble model does not own an object embedder.")
+        raise Exception("The ensemble model does not support on own object embedder.")
 
     def get_p_embedder(self) -> KgeEmbedder:
-        raise Exception("The ensemble model does not own a predicate embedder.")
+        raise Exception("The ensemble model does not support an own predicate embedder.")
 
     def get_scorer(self) -> RelationalScorer:
-        raise Exception("The ensemble model does not own a relational scorer.")
+        raise Exception("The ensemble model does not support an own relational scorer.")
