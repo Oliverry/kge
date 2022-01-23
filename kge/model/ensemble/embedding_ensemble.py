@@ -1,5 +1,3 @@
-from typing import List
-
 import torch
 from torch import Tensor
 
@@ -13,7 +11,7 @@ from kge.model.kge_model import KgeModel
 # TODO maybe do code optimization
 def fetch_embedding(model: KgeModel, embedder, idxs: Tensor = None) -> Tensor:
     """
-    Fetches the embedding of a given model and indexes using the specified embedder.
+    Fetches the embedding of a given model and indexes using the specified embedder
     :param model: The specified model
     :param idxs: Given indexes
     :param embedder: Can be "s", "p", "o"
@@ -35,7 +33,7 @@ def fetch_embedding(model: KgeModel, embedder, idxs: Tensor = None) -> Tensor:
         else:
             out = model.get_p_embedder().embed(idxs)
     else:
-        raise Exception("embedder has to be specified.")  # TODO specifiy exception
+        raise Exception("embedder has to be specified.")  # TODO specify exception
     n = out.size()[0]
     out = out.view(n, 1, -1)
     return out.detach()
@@ -114,10 +112,10 @@ class EmbeddingEnsemble(Ensemble):
         sub_emb_list = []
         obj_emb_list = []
         for model in self.submodels:
-                model_sub_emb = fetch_embedding(model, "s", entity_subset)
-                model_obj_emb = fetch_embedding(model, "o", entity_subset)
-                sub_emb_list.append(model_sub_emb)
-                obj_emb_list.append(model_obj_emb)
+            model_sub_emb = fetch_embedding(model, "s", entity_subset)
+            model_obj_emb = fetch_embedding(model, "o", entity_subset)
+            sub_emb_list.append(model_sub_emb)
+            obj_emb_list.append(model_obj_emb)
         sub_emb = torch.cat(sub_emb_list, dim=1)
         obj_emb = torch.cat(obj_emb_list, dim=1)
         sub_emb = self.dim_reduction.reduce_entities(sub_emb)
