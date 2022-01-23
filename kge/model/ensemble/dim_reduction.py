@@ -17,7 +17,7 @@ class DimReductionBase(nn.Module, Configurable):
         """
         Execute a dimensionality reduction on the tensor of the form n times m times dim_m,
         where n is the number of entities, m is the number of submodels and dim_m is the
-        length of the model embedding dimension.
+        length of the model embedding dimension
         :param t:
         :return:
         """
@@ -27,7 +27,7 @@ class DimReductionBase(nn.Module, Configurable):
         """
         Execute a dimensionality reduction on the tensor of the form n times m times dim_m,
         where n is the number of relations, m is the number of submodels and dim_m is the
-        length of the model embedding dimension.
+        length of the model embedding dimension
         :param t:
         :return:
         """
@@ -60,7 +60,7 @@ class DimReductionDataset(Dataset):
     def __init__(self, models, mode="entity"):
         """
         Creates a new dataset for unsupervised learning of dimensionality reduction models.
-        The data has the format n times m times dim_m.
+        The data has the format n times m times dim_m
         :param models:
         :param mode: either "entity" or "relation"
         """
@@ -124,7 +124,7 @@ class AutoencoderReduction(DimReductionBase):
         loss_function = torch.nn.MSELoss()
         # using an Adam Optimizer with lr = 0.1
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-1, weight_decay=1e-8)
-        epochs = 20
+        epochs = 50
         for epoch in range(epochs):
             loss_val = 0
             for batch in dataloader:
@@ -156,12 +156,15 @@ class Autoencoder(nn.Module, Configurable):
         dim_in = self.get_option("dim_in")
         dim_out = self.get_option("dim_out")
         num_layers = self.get_option("num_layers")
+        self.dropout = 0.2
+        self.epochs = 50
 
         layer_dims = [round(dim_in - n * ((dim_in - dim_out) / num_layers)) for n in range(0, num_layers)]
         layer_dims.append(dim_out)
 
         encode_dict = OrderedDict()
         for idx in range(0, num_layers):
+            encode_dict["dropout"+str(idx)] = nn.Dropout(p=self.dropout)
             encode_dict["linear" + str(idx)] = nn.Linear(layer_dims[idx], layer_dims[idx + 1])
             if idx + 1 < num_layers:
                 encode_dict["relu" + str(idx)] = nn.ReLU()
