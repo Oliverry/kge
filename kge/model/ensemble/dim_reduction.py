@@ -119,6 +119,7 @@ class AutoencoderReduction(DimReductionBase):
         self.train_model(relation_dataloader, self.relation_model)
 
     def train_model(self, dataloader, model):
+        model.train()
         # validation using MSE Loss function
         loss_function = torch.nn.MSELoss()
         # using an Adam Optimizer with lr = 0.1
@@ -180,5 +181,7 @@ class Autoencoder(nn.Module, Configurable):
         return decoded
 
     def reduce(self, x):
-        encoded = self.encoder(x)
+        self.eval()
+        with torch.no_grad():
+            encoded = self.encoder(x)
         return encoded

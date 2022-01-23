@@ -114,11 +114,6 @@ class EmbeddingEnsemble(Ensemble):
         sub_emb_list = []
         obj_emb_list = []
         for model in self.submodels:
-            if model.get_s_embedder() is model.get_o_embedder():
-                model_emb = fetch_embedding(model, "s", entity_subset)
-                sub_emb_list.append(model_emb)
-                obj_emb_list.append(model_emb)
-            else:
                 model_sub_emb = fetch_embedding(model, "s", entity_subset)
                 model_obj_emb = fetch_embedding(model, "o", entity_subset)
                 sub_emb_list.append(model_sub_emb)
@@ -126,7 +121,7 @@ class EmbeddingEnsemble(Ensemble):
         sub_emb = torch.cat(sub_emb_list, dim=1)
         obj_emb = torch.cat(obj_emb_list, dim=1)
         sub_emb = self.dim_reduction.reduce_entities(sub_emb)
-        obj_emb = self.dim_reduction.reduce_relations(obj_emb)
+        obj_emb = self.dim_reduction.reduce_entities(obj_emb)
 
         sp_scores = self.evaluator.score_emb(s_emb, p_emb, obj_emb, "sp_")
         po_scores = self.evaluator.score_emb(sub_emb, p_emb, o_emb, "_po")
