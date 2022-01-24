@@ -23,18 +23,25 @@ class EmbeddingEnsemble(Ensemble):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
+        # Lookup and initiate dimensionality reduction method
         dim_reduction_option = self.get_option("dim_reduction")
         evaluator_option = self.get_option("evaluator")
         if dim_reduction_option == "concat":
             self.dim_reduction = ConcatenationReduction(config, self.configuration_key)
         elif dim_reduction_option == "autoencoder":
             self.dim_reduction = AutoencoderReduction(config, self.configuration_key)
+        else:
+            raise Exception("Unknown dimensionality reduction: " + dim_reduction_option)
 
+        # Lookup and initiate evaluator method
         if evaluator_option == "kge_adapter":
             self.evaluator = KgeAdapter(dataset, config)
         elif evaluator_option == "finetuning":
             self.evaluator = FineTuning(dataset, config)
+        else:
+            raise Exception("Unknown evaluator: "+evaluator_option)
 
+        # Start training of dimensionality reduction method
         if config.get("job.type") == "train":
             self.dim_reduction.train_dim_reduction(self.submodels)
 
