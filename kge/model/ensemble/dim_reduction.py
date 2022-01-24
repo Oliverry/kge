@@ -13,7 +13,7 @@ class DimReductionBase(nn.Module, Configurable):
     def __init__(self, config: Config, configuration_key, parent_configuration_key):
         """
         Initializes basic dim reduction variables.
-        Updates the reduced dimensionalities in embedding ensemble if entity_reduction and relation_reduction
+        Updates the reduced dimensionality in embedding ensemble if entity_reduction and relation_reduction
         are given for the reduction model, else do a concatenation
         :param config:
         :param configuration_key:
