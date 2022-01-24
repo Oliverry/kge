@@ -18,7 +18,7 @@ class EmbeddingEvaluator(nn.Module, Configurable):
         """
         Takes tensors of embeddings of the form n times E, where n is the number of triples
         and E is dimensionality of the embeddings.
-        Then the embeddings are combined row wise.
+        Then the embeddings are combined specified by the combine statement.
         :param combine:
         :param s:
         :param p:
@@ -31,8 +31,8 @@ class EmbeddingEvaluator(nn.Module, Configurable):
 class KgeAdapter(EmbeddingEvaluator):
 
     # TODO create reciprocal relations model for better accuracy (some models use them as well)?
-    def __init__(self, dataset: Dataset, config: Config, configuration_key=None):
-        EmbeddingEvaluator.__init__(self, config, configuration_key)
+    def __init__(self, dataset: Dataset, config: Config):
+        EmbeddingEvaluator.__init__(self, config, "kge_adapter")
         model_name = self.get_option("model")
         model_options = {"model": model_name,
                          model_name: copy.deepcopy(config.options["kge_adapter"][model_name]),
@@ -55,8 +55,8 @@ class FineTuning(EmbeddingEvaluator):
     KgeAdapter is used to apply the scoring function.
     """
 
-    def __init__(self, dataset: Dataset, config: Config, configuration_key=None):
-        EmbeddingEvaluator.__init__(self, config, configuration_key)
+    def __init__(self, dataset: Dataset, config: Config):
+        EmbeddingEvaluator.__init__(self, config, "finetuning")
 
         num_layers = self.get_option("num_layers")
         entity_dim = self.get_option("entity_dim")

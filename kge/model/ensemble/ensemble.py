@@ -38,6 +38,11 @@ class Ensemble(KgeModel):
             self.submodels.append(self.load_pretrained_model(model_name))
 
     def load_pretrained_model(self, model_name) -> KgeModel:
+        """
+        The pretrained model has to be saved in the folder dataset/modelname
+        :param model_name:
+        :return:
+        """
         pretrained_model_path = os.path.join(pretrained_model_dir(), self.config.get("dataset.name"), model_name)
         pretrained_model_checkpoint_path = os.path.join(pretrained_model_path, "checkpoint_best.pt")
         if exists(pretrained_model_checkpoint_path):

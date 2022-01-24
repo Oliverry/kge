@@ -7,12 +7,37 @@ from torch.utils.data import Dataset, DataLoader
 
 from kge import Configurable, Config
 
-# TODO config reduced dim besser sichbar für user machen?
+
 class DimReductionBase(nn.Module, Configurable):
 
-    def __init__(self, config: Config, configuration_key=None):
+    def __init__(self, config: Config, configuration_key, parent_configuration_key):
+        """
+        Initializes basic dim reduction variables.
+        Updates the reduced dimensionalities in embedding ensemble if entity_reduction and relation_reduction
+        are given for the reduction model, else do a concatenation
+        :param config:
+        :param configuration_key:
+        :param parent_configuration_key:
+        """
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
+
+        # update reduced embedding size in config in case of training
+        if config.get("job.type") == "train":
+            parent_configuration_key = parent_configuration_key
+            num_models = len(config.get(parent_configuration_key + ".submodels"))
+            entity_dim = config.get(parent_configuration_key + ".entities.source_dim")
+            relation_dim = config.get(parent_configuration_key + ".relations.source_dim")
+            entity_reduction = 1.0
+            if self.has_option("entity_reduction"):
+                entity_reduction = self.get_option("entity_reduction")
+            relation_reduction = 1.0
+            if self.has_option("relation_reduction"):
+                relation_reduction = self.get_option("relation_reduction")
+            entity_dim_reduced = math.floor(num_models * entity_dim * entity_reduction)
+            relation_dim_reduced = math.floor(num_models * relation_dim * relation_reduction)
+            self.config.set(parent_configuration_key + ".entities.reduced_dim", entity_dim_reduced)
+            self.config.set(parent_configuration_key + ".relations.reduced_dim", relation_dim_reduced)
 
     def reduce_entities(self, t: Tensor):
         """
@@ -40,8 +65,8 @@ class DimReductionBase(nn.Module, Configurable):
 
 class ConcatenationReduction(DimReductionBase):
 
-    def __init__(self, config):
-        DimReductionBase.__init__(self, config, None)
+    def __init__(self, config, parent_configuration_key):
+        DimReductionBase.__init__(self, config, None, parent_configuration_key)
 
     def reduce_entities(self, t: Tensor):
         n = t.size()[0]
@@ -91,25 +116,15 @@ class DimReductionDataset(Dataset):
 class AutoencoderReduction(DimReductionBase):
 
     def __init__(self, config: Config, parent_configuration_key):
-        DimReductionBase.__init__(self, config, "autoencoder_reduction")
+        DimReductionBase.__init__(self, config, "autoencoder_reduction", parent_configuration_key)
+
         if config.get("job.type") == "train":
-            # get training parameters
             self.epochs = self.get_option("epochs")
             self.lr = self.get_option("lr")
             self.weight_decay = self.get_option("weight_decay")
 
-            # write new embeddings sizes in config of embedding ensemble
-            num_models = len(self.config.get(parent_configuration_key + ".submodels"))
-            entity_dim = self.config.get(parent_configuration_key + ".entities.source_dim")
-            relation_dim = self.config.get(parent_configuration_key + ".relations.source_dim")
-            entity_reduction = self.get_option("entity_reduction")
-            relation_reduction = self.get_option("relation_reduction")
-            entity_dim_reduced = math.floor(num_models * entity_dim * entity_reduction)
-            relation_dim_reduced = math.floor(num_models * relation_dim * relation_reduction)
-            self.config.set(parent_configuration_key + ".entities.reduced_dim", entity_dim_reduced)
-            self.config.set(parent_configuration_key + ".relations.reduced_dim", relation_dim_reduced)
-        self.entity_model = Autoencoder(config, parent_configuration_key,  "entities")
-        self.relation_model = Autoencoder(config, parent_configuration_key,  "relations")
+        self.entity_model = Autoencoder(config, parent_configuration_key, "entities")
+        self.relation_model = Autoencoder(config, parent_configuration_key, "relations")
 
     def reduce_entities(self, t: Tensor):
         n = t.size()[0]
@@ -182,7 +197,7 @@ class Autoencoder(nn.Module, Configurable):
 
         encode_dict = OrderedDict()
         for idx in range(0, self.num_layers):
-            encode_dict["dropout"+str(idx)] = nn.Dropout(p=self.dropout)
+            encode_dict["dropout" + str(idx)] = nn.Dropout(p=self.dropout)
             encode_dict["linear" + str(idx)] = nn.Linear(layer_dims[idx], layer_dims[idx + 1])
             if idx + 1 < self.num_layers:
                 encode_dict["relu" + str(idx)] = nn.ReLU()
