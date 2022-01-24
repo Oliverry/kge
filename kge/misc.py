@@ -58,8 +58,8 @@ def get_git_revision_hash():
             with Path(kge_base_dir()):
                 return (
                     subprocess.check_output(["git", "rev-parse", "HEAD"])
-                        .strip()
-                        .decode()
+                    .strip()
+                    .decode()
                 )
         else:
             return "No git binary found"
@@ -74,8 +74,8 @@ def get_git_revision_short_hash():
             with Path(kge_base_dir()):
                 return (
                     subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
-                        .strip()
-                        .decode()
+                    .strip()
+                    .decode()
                 )
         else:
             return "No git binary found"
@@ -144,7 +144,7 @@ def round_to_points(round_points_to: List[int], to_be_rounded: int):
     """
     if len(round_points_to) > 0:
         assert (
-                round_points_to[0] <= round_points_to[-1]
+            round_points_to[0] <= round_points_to[-1]
         ), "First element in round_points_to should be the lower bound and the last the upper bound"
         last = -1
         for i, round_point in enumerate(round_points_to):

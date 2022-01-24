@@ -11,11 +11,11 @@ class ReciprocalRelationsModel(KgeModel):
     """
 
     def __init__(
-            self,
-            config: Config,
-            dataset: Dataset,
-            configuration_key=None,
-            init_for_load_only=False,
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
     ):
         self._init_configuration(config, configuration_key)
 
@@ -79,11 +79,11 @@ class ReciprocalRelationsModel(KgeModel):
         raise Exception("The reciprocal relations model cannot score relations.")
 
     def score_sp_po(
-            self,
-            s: torch.Tensor,
-            p: torch.Tensor,
-            o: torch.Tensor,
-            entity_subset: torch.Tensor = None,
+        self,
+        s: torch.Tensor,
+        p: torch.Tensor,
+        o: torch.Tensor,
+        entity_subset: torch.Tensor = None,
     ) -> torch.Tensor:
         s = self.get_s_embedder().embed(s)
         p_inv = self.get_p_embedder().embed(p + self.dataset.num_relations())

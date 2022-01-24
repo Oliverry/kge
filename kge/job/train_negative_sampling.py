@@ -21,7 +21,6 @@ class TrainingJobNegativeSampling(TrainingJob):
         )
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self.type_str = "negative_sampling"
-        torch.autograd.set_detect_anomaly(True)
 
         if self.__class__ == TrainingJobNegativeSampling:
             for f in Job.job_created_hooks:
