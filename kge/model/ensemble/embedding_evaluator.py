@@ -10,9 +10,12 @@ from kge.model.kge_model import KgeModel
 
 class EmbeddingEvaluator(nn.Module, Configurable):
 
-    def __init__(self, config: Config, configuration_key=None):
+    def __init__(self, config: Config, configuration_key, parent_configuration_key):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
+        # Fetch entity and relation dimensionality for evaluator
+        self.entity_dim = config.get(parent_configuration_key + ".entities.reduced_dim")
+        self.relation_dim = config.get(parent_configuration_key + ".relations.reduced_dim")
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         """
@@ -31,8 +34,8 @@ class EmbeddingEvaluator(nn.Module, Configurable):
 class KgeAdapter(EmbeddingEvaluator):
 
     # TODO create reciprocal relations model for better accuracy (some models use them as well)?
-    def __init__(self, dataset: Dataset, config: Config):
-        EmbeddingEvaluator.__init__(self, config, "kge_adapter")
+    def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
+        EmbeddingEvaluator.__init__(self, config, "kge_adapter", parent_configuration_key)
         model_name = self.get_option("model")
         model_options = {"model": model_name,
                          model_name: copy.deepcopy(config.options["kge_adapter"][model_name]),
@@ -55,8 +58,8 @@ class FineTuning(EmbeddingEvaluator):
     KgeAdapter is used to apply the scoring function.
     """
 
-    def __init__(self, dataset: Dataset, config: Config):
-        EmbeddingEvaluator.__init__(self, config, "finetuning")
+    def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
+        EmbeddingEvaluator.__init__(self, config, "finetuning", parent_configuration_key)
 
         num_layers = self.get_option("num_layers")
         entity_dim = self.get_option("entity_dim")

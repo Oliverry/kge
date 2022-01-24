@@ -35,9 +35,9 @@ class EmbeddingEnsemble(Ensemble):
 
         # Lookup and initiate evaluator method
         if evaluator_option == "kge_adapter":
-            self.evaluator = KgeAdapter(dataset, config)
+            self.evaluator = KgeAdapter(dataset, config, self.configuration_key)
         elif evaluator_option == "finetuning":
-            self.evaluator = FineTuning(dataset, config)
+            self.evaluator = FineTuning(dataset, config, self.configuration_key)
         else:
             raise Exception("Unknown evaluator: "+evaluator_option)
 
