@@ -1,21 +1,22 @@
+import: [dim_reduction]
+
 embedding_ensemble:
   class_name: EmbeddingEnsemble
   submodels: [transe, complex]
   dim_reduction: autoencoder
   evaluator: kge_adapter
+  entities:
+    source_dim: 128
+    +++: +++
+  relations:
+    source_dim: 128
+    +++: +++
 
 kge_adapter:
   model: none
   +++: +++
 
-autoencoder:
-  dim_in: 200
-  dim_out: 100
-  num_layers: 3
-
 finetuning:
   num_layers: 3
   entity_dim: 200
   relation_dim: 200
-
-

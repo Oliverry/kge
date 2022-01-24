@@ -1,0 +1,10 @@
+autoencoder_reduction:
+  epochs: 50
+  lr: 1e-1
+  weight_decay: 1e-8
+  entity_reduction: 0.5
+  relation_reduction: 0.5
+
+autoencoder:
+  num_layers: 3
+  dropout: 0.2

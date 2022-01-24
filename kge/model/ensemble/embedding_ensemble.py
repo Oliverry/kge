@@ -23,16 +23,16 @@ class EmbeddingEnsemble(Ensemble):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
-        dim_reduction_str = self.get_option("dim_reduction")
-        evaluator_str = self.get_option("evaluator")
-        if dim_reduction_str == "concat":
-            self.dim_reduction = ConcatenationReduction(config, "concat")
-        elif dim_reduction_str == "autoencoder":
-            self.dim_reduction = AutoencoderReduction(config, "autoencoder")
+        dim_reduction_option = self.get_option("dim_reduction")
+        evaluator_option = self.get_option("evaluator")
+        if dim_reduction_option == "concat":
+            self.dim_reduction = ConcatenationReduction(config)
+        elif dim_reduction_option == "autoencoder":
+            self.dim_reduction = AutoencoderReduction(config, self.configuration_key)
 
-        if evaluator_str == "kge_adapter":
+        if evaluator_option == "kge_adapter":
             self.evaluator = KgeAdapter(dataset, config, "kge_adapter")
-        elif evaluator_str == "finetuning":
+        elif evaluator_option == "finetuning":
             self.evaluator = FineTuning(dataset, config, "finetuning")
 
         if config.get("job.type") == "train":

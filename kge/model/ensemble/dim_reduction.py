@@ -1,3 +1,4 @@
+import math
 from collections import OrderedDict
 
 import torch
@@ -6,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from kge import Configurable, Config
 
-
+# TODO config reduced dim besser sichbar für user machen?
 class DimReductionBase(nn.Module, Configurable):
 
     def __init__(self, config: Config, configuration_key=None):
@@ -39,8 +40,8 @@ class DimReductionBase(nn.Module, Configurable):
 
 class ConcatenationReduction(DimReductionBase):
 
-    def __init__(self, config, configuration_key):
-        DimReductionBase.__init__(self, config, configuration_key)
+    def __init__(self, config):
+        DimReductionBase.__init__(self, config, None)
 
     def reduce_entities(self, t: Tensor):
         n = t.size()[0]
@@ -87,13 +88,28 @@ class DimReductionDataset(Dataset):
         return self.data[idx]
 
 
-# TODO different configs for entity and relations reduction
 class AutoencoderReduction(DimReductionBase):
 
-    def __init__(self, config: Config, configuration_key=None):
-        DimReductionBase.__init__(self, config, configuration_key)
-        self.entity_model = Autoencoder(config, configuration_key)
-        self.relation_model = Autoencoder(config, configuration_key)
+    def __init__(self, config: Config, parent_configuration_key):
+        DimReductionBase.__init__(self, config, "autoencoder_reduction")
+        if config.get("job.type") == "train":
+            # get training parameters
+            self.epochs = self.get_option("epochs")
+            self.lr = self.get_option("lr")
+            self.weight_decay = self.get_option("weight_decay")
+
+            # write new embeddings sizes in config of embedding ensemble
+            num_models = len(self.config.get(parent_configuration_key + ".submodels"))
+            entity_dim = self.config.get(parent_configuration_key + ".entities.source_dim")
+            relation_dim = self.config.get(parent_configuration_key + ".relations.source_dim")
+            entity_reduction = self.get_option("entity_reduction")
+            relation_reduction = self.get_option("relation_reduction")
+            entity_dim_reduced = math.floor(num_models * entity_dim * entity_reduction)
+            relation_dim_reduced = math.floor(num_models * relation_dim * relation_reduction)
+            self.config.set(parent_configuration_key + ".entities.reduced_dim", entity_dim_reduced)
+            self.config.set(parent_configuration_key + ".relations.reduced_dim", relation_dim_reduced)
+        self.entity_model = Autoencoder(config, parent_configuration_key,  "entities")
+        self.relation_model = Autoencoder(config, parent_configuration_key,  "relations")
 
     def reduce_entities(self, t: Tensor):
         n = t.size()[0]
@@ -122,10 +138,9 @@ class AutoencoderReduction(DimReductionBase):
         model.train()
         # validation using MSE Loss function
         loss_function = torch.nn.MSELoss()
-        # using an Adam Optimizer with lr = 0.1
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-1, weight_decay=1e-8)
-        epochs = 50
-        for epoch in range(epochs):
+        # using an Adam Optimizer
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        for epoch in range(self.epochs):
             loss_val = 0
             for batch in dataloader:
                 n = batch.size()[0]
@@ -145,32 +160,35 @@ class AutoencoderReduction(DimReductionBase):
                 optimizer.step()
 
                 loss_val += loss.item()
-            print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss_val))
+            print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, self.epochs, loss_val))
 
 
-# TODO add regularization
 class Autoencoder(nn.Module, Configurable):
-    def __init__(self, config: Config, configuration_key=None):
+    def __init__(self, config: Config, parent_configuration_key, embedding_configuration_key):
         super(Autoencoder, self).__init__()
-        Configurable.__init__(self, config, configuration_key)
-        dim_in = self.get_option("dim_in")
-        dim_out = self.get_option("dim_out")
-        num_layers = self.get_option("num_layers")
-        self.dropout = 0.2
-        self.epochs = 50
+        Configurable.__init__(self, config, "autoencoder")
+        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
+        reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".reduced_dim")
+        self.dim_in = num_models * source_dim
+        self.dim_out = reduced_dim
+        self.num_layers = self.get_option("num_layers")
+        self.dropout = self.get_option("dropout")
 
-        layer_dims = [round(dim_in - n * ((dim_in - dim_out) / num_layers)) for n in range(0, num_layers)]
-        layer_dims.append(dim_out)
+        layer_dims = [
+            round(self.dim_in - n * ((self.dim_in - self.dim_out) / self.num_layers)) for n in range(0, self.num_layers)
+        ]
+        layer_dims.append(self.dim_out)
 
         encode_dict = OrderedDict()
-        for idx in range(0, num_layers):
+        for idx in range(0, self.num_layers):
             encode_dict["dropout"+str(idx)] = nn.Dropout(p=self.dropout)
             encode_dict["linear" + str(idx)] = nn.Linear(layer_dims[idx], layer_dims[idx + 1])
-            if idx + 1 < num_layers:
+            if idx + 1 < self.num_layers:
                 encode_dict["relu" + str(idx)] = nn.ReLU()
 
         decode_dict = OrderedDict()
-        for idx in reversed(range(0, num_layers)):
+        for idx in reversed(range(0, self.num_layers)):
             decode_dict["linear" + str(idx)] = nn.Linear(layer_dims[idx + 1], layer_dims[idx])
             if idx > 0:
                 decode_dict["relu" + str(idx)] = nn.ReLU()
