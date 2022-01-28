@@ -5,6 +5,7 @@ import torch
 from torch import Tensor, nn
 
 from kge import Configurable, Config, Dataset
+from kge.misc import init_from
 from kge.model.kge_model import KgeModel
 
 
@@ -33,16 +34,40 @@ class EmbeddingEvaluator(nn.Module, Configurable):
 
 class KgeAdapter(EmbeddingEvaluator):
 
-    # TODO create reciprocal relations model for better accuracy (some models use them as well)?
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
         EmbeddingEvaluator.__init__(self, config, "kge_adapter", parent_configuration_key)
+
+        # create model specific configuration
+        model_config = Config()
+        model_config.folder = config.folder
+        model_config.log_folder = config.log_folder
+        model_config.log_prefix = config.log_prefix
         model_name = self.get_option("model")
         model_options = {"model": model_name,
-                         model_name: copy.deepcopy(config.options["kge_adapter"][model_name]),
-                         "job.device": config.get("job.device")}
-        model_config = Config()
-        model_config.load_options(model_options, create=True)
-        self.model = KgeModel.create(model_config, dataset)
+                         model_name: copy.deepcopy(config.options["kge_adapter"][model_name])}
+        model_config.load_options(model_options)
+        class_name = model_config.get(model_name + ".class_name")
+
+        # if embedders are used, change embedding size to aggregated dimensions
+        if "entity_embedder" in model_config.options[model_name]:
+            model_config.set(model_name + ".entity_embedder.dim", self.entity_dim, create=True)
+        if "relation_embedder" in model_config.options[model_name]:
+            model_config.set(model_name + ".relation_embedder.dim", self.relation_dim, create=True)
+
+        # try to create model
+        try:
+            self.model = init_from(
+                class_name,
+                config.get("modules"),
+                config=model_config,
+                dataset=dataset,
+                configuration_key=None,
+                init_for_load_only=True
+            )
+            self.model.to(config.get("job.device"))
+        except:
+            config.log(f"Failed to create model {model_name} (class {class_name}).")
+            raise
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         res = self.model.get_scorer().score_emb(s, p, o, combine=combine)

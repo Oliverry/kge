@@ -10,7 +10,9 @@ class MultiLayerPerceptronScorer(RelationalScorer):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
-        dim_in = self.get_option("dim_in")
+        entity_dim = self.get_option("entity_embedder.dim")
+        relation_dim = self.get_option("relation_embedder.dim")
+        dim_in = 2 * entity_dim + relation_dim
         dim_t = self.get_option("dim_t")
         self.linear1 = nn.Linear(dim_in, dim_t)  # embedding concatenation (spo) -> entitiy embedding size
         self.tanh = nn.Tanh()
