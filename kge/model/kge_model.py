@@ -364,7 +364,7 @@ class KgeModel(KgeBase):
         self,
         config: Config,
         dataset: Dataset,
-        scorer: Union[RelationalScorer, type],
+        scorer: Optional[Union[RelationalScorer, type]],
         create_embedders=True,
         configuration_key=None,
         init_for_load_only=False,
