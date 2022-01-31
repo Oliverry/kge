@@ -6,7 +6,6 @@ from torch import Tensor, nn
 
 from kge import Configurable, Config, Dataset
 from kge.misc import init_from
-from kge.model.kge_model import KgeModel
 
 
 class EmbeddingEvaluator(nn.Module, Configurable):
@@ -87,19 +86,17 @@ class FineTuning(EmbeddingEvaluator):
         EmbeddingEvaluator.__init__(self, config, "finetuning", parent_configuration_key)
 
         num_layers = self.get_option("num_layers")
-        entity_dim = self.get_option("entity_dim")
-        relation_dim = self.get_option("relation_dim")
 
         entity_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
-            entity_nn_dict["linear" + str(idx)] = nn.Linear(entity_dim, entity_dim)
+            entity_nn_dict["linear" + str(idx)] = nn.Linear(self.entity_dim, self.entity_dim)
             if idx + 1 < num_layers:
                 entity_nn_dict["relu" + str(idx)] = nn.ReLU()
         self.entity_finetuner = torch.nn.Sequential(entity_nn_dict)
 
         relation_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
-            relation_nn_dict["linear" + str(idx)] = nn.Linear(relation_dim, relation_dim)
+            relation_nn_dict["linear" + str(idx)] = nn.Linear(self.relation_dim, self.relation_dim)
             if idx + 1 < num_layers:
                 relation_nn_dict["relu" + str(idx)] = nn.ReLU()
         self.relation_finetuner = torch.nn.Sequential(relation_nn_dict)

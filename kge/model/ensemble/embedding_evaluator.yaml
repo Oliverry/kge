@@ -1,0 +1,6 @@
+kge_adapter:
+  model: none
+  +++: +++
+
+finetuning:
+  num_layers: 3

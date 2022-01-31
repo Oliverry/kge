@@ -1,4 +1,4 @@
-import: [dim_reduction]
+import: [dim_reduction, embedding_evaluator]
 
 embedding_ensemble:
   class_name: EmbeddingEnsemble
@@ -11,12 +11,3 @@ embedding_ensemble:
   relations:
     source_dim: 128
     +++: +++
-
-kge_adapter:
-  model: none
-  +++: +++
-
-finetuning:
-  num_layers: 3
-  entity_dim: 200
-  relation_dim: 200
