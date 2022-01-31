@@ -101,7 +101,7 @@ class FineTuning(EmbeddingEvaluator):
                 relation_nn_dict["relu" + str(idx)] = nn.ReLU()
         self.relation_finetuner = torch.nn.Sequential(relation_nn_dict)
 
-        self.adapter = KgeAdapter(dataset, config, "kge_adapter")
+        self.adapter = KgeAdapter(dataset, config, parent_configuration_key)
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         s_finetuned = self.entity_finetuner(s)
