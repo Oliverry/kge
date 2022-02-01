@@ -2,6 +2,7 @@ import math
 from collections import OrderedDict
 
 import torch
+from sklearn.decomposition import PCA
 from torch import nn, Tensor
 from torch.utils.data import Dataset, DataLoader
 
@@ -76,6 +77,36 @@ class ConcatenationReduction(DimReductionBase):
     def reduce_relations(self, t: Tensor):
         n = t.size()[0]
         res = t.view(n, -1)
+        return res
+
+    def train_dim_reduction(self, models):
+        pass
+
+
+class PcaReduction(DimReductionBase):
+
+    def __init__(self, config, parent_configuration_key):
+        DimReductionBase.__init__(self, config, "pca", parent_configuration_key)
+        entity_source = config.get(parent_configuration_key + ".entities.source_dim")
+        relation_source = config.get(parent_configuration_key + ".relations.source_dim")
+        entity_dim = entity_source * self.get_option("entity_reduction")
+        relation_dim = relation_source * self.get_option("relation_reduction")
+        if entity_dim - int(entity_dim) > 0:
+            raise Exception("PCA reduction of entities not doable for given percentage.")
+        if relation_dim - int(relation_dim) > 0:
+            raise Exception("PCA reduction of relations not doable for given percentage.")
+        self.entity_pca = PCA(n_components=int(entity_dim))
+        self.relation_pca = PCA(n_components=int(relation_dim))
+
+    def reduce_entities(self, t: Tensor):
+        t = torch.randn(2,128)
+        self.entity_pca.fit(t)
+        res = self.entity_pca.transform(t)
+        return res
+
+    def reduce_relations(self, t: Tensor):
+        self.relation_pca.fit(t)
+        res = self.relation_pca.transform(t)
         return res
 
     def train_dim_reduction(self, models):

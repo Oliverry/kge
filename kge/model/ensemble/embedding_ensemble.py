@@ -3,7 +3,7 @@ from torch import Tensor
 
 from kge import Config, Dataset
 from kge.model import Ensemble
-from kge.model.ensemble.dim_reduction import AutoencoderReduction, ConcatenationReduction
+from kge.model.ensemble.dim_reduction import AutoencoderReduction, ConcatenationReduction, PcaReduction
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 from kge.model.ensemble.load_pretrain import fetch_embedding
 
@@ -28,6 +28,8 @@ class EmbeddingEnsemble(Ensemble):
         evaluator_option = self.get_option("evaluator")
         if dim_reduction_option == "concat":
             self.dim_reduction = ConcatenationReduction(config, self.configuration_key)
+        elif dim_reduction_option == "pca":
+            self.dim_reduction = PcaReduction(config, self.configuration_key)
         elif dim_reduction_option == "autoencoder":
             self.dim_reduction = AutoencoderReduction(config, self.configuration_key)
         else:

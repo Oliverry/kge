@@ -1,3 +1,7 @@
+pca:
+  entity_reduction: 0.8
+  relation_reduction: 0.8
+
 autoencoder_reduction:
   epochs: 50
   lr: 1e-1
