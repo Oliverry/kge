@@ -7,6 +7,7 @@ from torch import nn, Tensor
 from torch.utils.data import Dataset, DataLoader
 
 from kge import Configurable, Config
+from kge.model import KgeEmbedder
 
 
 class AggregationBase(nn.Module, Configurable):
@@ -40,21 +41,23 @@ class AggregationBase(nn.Module, Configurable):
             self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
             self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
 
-    def aggregate_entities(self, t: Tensor):
+    def aggregate_entities(self, t: Tensor, indexes=None):
         """
         Execute a dimensionality reduction on the tensor of the form n times m times dim_m,
         where n is the number of entities, m is the number of submodels and dim_m is the
         length of the model embedding dimension
+        :param indexes:
         :param t:
         :return:
         """
         raise NotImplementedError
 
-    def aggregate_relations(self, t: Tensor):
+    def aggregate_relations(self, t: Tensor, indexes):
         """
         Execute a dimensionality reduction on the tensor of the form n times m times dim_m,
         where n is the number of relations, m is the number of submodels and dim_m is the
         length of the model embedding dimension
+        :param indexes:
         :param t:
         :return:
         """
@@ -69,12 +72,12 @@ class Concatenation(AggregationBase):
     def __init__(self, config, parent_configuration_key):
         AggregationBase.__init__(self, config, None, parent_configuration_key)
 
-    def aggregate_entities(self, t: Tensor):
+    def aggregate_entities(self, t: Tensor, indexes=None):
         n = t.size()[0]
         res = t.view(n, -1)
         return res
 
-    def aggregate_relations(self, t: Tensor):
+    def aggregate_relations(self, t: Tensor, indexes=None):
         n = t.size()[0]
         res = t.view(n, -1)
         return res
@@ -98,13 +101,13 @@ class PcaReduction(AggregationBase):
         self.entity_pca = PCA(n_components=int(entity_dim))
         self.relation_pca = PCA(n_components=int(relation_dim))
 
-    def aggregate_entities(self, t: Tensor):
-        t = torch.randn(2,128)
+    def aggregate_entities(self, t: Tensor, indexes=None):
+        t = torch.randn(2, 128)
         self.entity_pca.fit(t)
         res = self.entity_pca.transform(t)
         return res
 
-    def aggregate_relations(self, t: Tensor):
+    def aggregate_relations(self, t: Tensor, indexes=None):
         self.relation_pca.fit(t)
         res = self.relation_pca.transform(t)
         return res
@@ -157,13 +160,13 @@ class AutoencoderReduction(AggregationBase):
         self.entity_model = Autoencoder(config, parent_configuration_key, "entities")
         self.relation_model = Autoencoder(config, parent_configuration_key, "relations")
 
-    def aggregate_entities(self, t: Tensor):
+    def aggregate_entities(self, t: Tensor, indexes=None):
         n = t.size()[0]
         entities = t.view(n, -1)  # transform tensor to format
         entities = self.entity_model.reduce(entities)
         return entities
 
-    def aggregate_relations(self, t: Tensor):
+    def aggregate_relations(self, t: Tensor, indexes=None):
         n = t.size()[0]
         relations = t.view(n, -1)  # transform tensor to format
         relations = self.relation_model.reduce(relations)
@@ -252,3 +255,69 @@ class Autoencoder(nn.Module, Configurable):
         with torch.no_grad():
             encoded = self.encoder(x)
         return encoded
+
+
+class OneToN(AggregationBase):
+
+    def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
+        AggregationBase.__init__(self, config, "oneton", parent_configuration_key)
+        num_models = len(config.get(parent_configuration_key + ".submodels"))
+
+        # modify embedder config
+        entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
+        relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
+        self.set_option("entity_embedder.dim", entity_dim)
+        self.set_option("relation_embedder.dim", relation_dim)
+
+        # create embedders for metaembeddings
+        self._entity_embedder = KgeEmbedder.create(
+            config,
+            dataset,
+            self.configuration_key + ".entity_embedder",
+            dataset.num_entities(),
+            init_for_load_only=False,
+        )
+        self._relation_embedder = KgeEmbedder.create(
+            config,
+            dataset,
+            self.configuration_key + ".relation_embedder",
+            dataset.num_relations(),
+            init_for_load_only=False,
+        )
+
+        # create neural nets for metaembedding projection
+        self.entity_nets = nn.ModuleList(
+            [OneToNet(config, parent_configuration_key, "entities") for _ in range(0, num_models)]
+        )
+        self.relations_nets = nn.ModuleList(
+            [OneToNet(config, parent_configuration_key, "relations") for _ in range(0, num_models)]
+        )
+
+    def aggregate_entities(self, t: Tensor, indexes=None):
+        if indexes is None:
+            return self._entity_embedder.embed_all()
+        else:
+            return self._entity_embedder.embed(indexes)
+
+    def aggregate_relations(self, t: Tensor, indexes=None):
+        if indexes is None:
+            return self._entity_embedder.embed_all()
+        else:
+            return self._relation_embedder.embed(indexes)
+
+    def train_aggregation(self, models):
+        pass
+
+
+class OneToNet(nn.Module, Configurable):
+
+    def __init__(self, config: Config, parent_configuration_key, embedding_configuration_key):
+        super(OneToNet, self).__init__()
+        Configurable.__init__(self, config, "onetonet")
+        source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
+        reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
+        self.layer = nn.Linear(reduced_dim, source_dim, bias=False)
+
+    def forward(self, x):
+        x = self.layer(x)
+        return x

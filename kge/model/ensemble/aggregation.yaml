@@ -1,3 +1,5 @@
+import: [lookup_embedder]
+
 pca:
   entity_reduction: 0.8
   relation_reduction: 0.8
@@ -12,3 +14,11 @@ autoencoder_reduction:
 autoencoder:
   num_layers: 3
   dropout: 0.2
+
+oneton:
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++
