@@ -1,9 +1,9 @@
-import: [dim_reduction, embedding_evaluator]
+import: [aggregation, embedding_evaluator]
 
 embedding_ensemble:
   class_name: EmbeddingEnsemble
   submodels: [transe, complex]
-  dim_reduction: autoencoder
+  aggregation: autoencoder
   evaluator: kge_adapter
   entities:
     source_dim: 128

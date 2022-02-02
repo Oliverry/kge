@@ -14,8 +14,8 @@ class EmbeddingEvaluator(nn.Module, Configurable):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
         # Fetch entity and relation dimensionality for evaluator
-        self.entity_dim = config.get(parent_configuration_key + ".entities.reduced_dim")
-        self.relation_dim = config.get(parent_configuration_key + ".relations.reduced_dim")
+        self.entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
+        self.relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         """

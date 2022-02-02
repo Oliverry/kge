@@ -3,7 +3,7 @@ from torch import Tensor
 
 from kge import Config, Dataset
 from kge.model import Ensemble
-from kge.model.ensemble.dim_reduction import AutoencoderReduction, ConcatenationReduction, PcaReduction
+from kge.model.ensemble.aggregation import AutoencoderReduction, PcaReduction, Concatenation
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 from kge.model.ensemble.load_pretrain import fetch_embedding
 
@@ -24,16 +24,16 @@ class EmbeddingEnsemble(Ensemble):
             init_for_load_only=init_for_load_only,
         )
         # Lookup and initiate dimensionality reduction method
-        dim_reduction_option = self.get_option("dim_reduction")
+        aggregation_option = self.get_option("aggregation")
         evaluator_option = self.get_option("evaluator")
-        if dim_reduction_option == "concat":
-            self.dim_reduction = ConcatenationReduction(config, self.configuration_key)
-        elif dim_reduction_option == "pca":
-            self.dim_reduction = PcaReduction(config, self.configuration_key)
-        elif dim_reduction_option == "autoencoder":
-            self.dim_reduction = AutoencoderReduction(config, self.configuration_key)
+        if aggregation_option == "concat":
+            self.aggregation = Concatenation(config, self.configuration_key)
+        elif aggregation_option == "pca":
+            self.aggregation = PcaReduction(config, self.configuration_key)
+        elif aggregation_option == "autoencoder":
+            self.aggregation = AutoencoderReduction(config, self.configuration_key)
         else:
-            raise Exception("Unknown dimensionality reduction: " + dim_reduction_option)
+            raise Exception("Unknown dimensionality reduction: " + aggregation_option)
 
         # Lookup and initiate evaluator method
         if evaluator_option == "kge_adapter":
@@ -45,46 +45,46 @@ class EmbeddingEnsemble(Ensemble):
 
         # Start training of dimensionality reduction method
         if config.get("job.type") == "train":
-            self.dim_reduction.train_dim_reduction(self.submodels)
+            self.aggregation.train_aggregation(self.submodels)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
-        s_emb = self.dim_reduction.reduce_entities(s_emb)
-        p_emb = self.dim_reduction.reduce_relations(p_emb)
-        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        s_emb = self.aggregation.aggregate_entities(s_emb)
+        p_emb = self.aggregation.aggregate_relations(p_emb)
+        o_emb = self.aggregation.aggregate_entities(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "spo")
         return scores
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
-        s_emb = self.dim_reduction.reduce_entities(s_emb)
-        p_emb = self.dim_reduction.reduce_relations(p_emb)
-        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        s_emb = self.aggregation.aggregate_entities(s_emb)
+        p_emb = self.aggregation.aggregate_relations(p_emb)
+        o_emb = self.aggregation.aggregate_entities(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "sp_")
         return scores
 
     def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
         s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
-        s_emb = self.dim_reduction.reduce_entities(s_emb)
-        p_emb = self.dim_reduction.reduce_relations(p_emb)
-        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        s_emb = self.aggregation.aggregate_entities(s_emb)
+        p_emb = self.aggregation.aggregate_relations(p_emb)
+        o_emb = self.aggregation.aggregate_entities(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "_po")
         return scores
 
     def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
         s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
-        s_emb = self.dim_reduction.reduce_entities(s_emb)
-        p_emb = self.dim_reduction.reduce_relations(p_emb)
-        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        s_emb = self.aggregation.aggregate_entities(s_emb)
+        p_emb = self.aggregation.aggregate_relations(p_emb)
+        o_emb = self.aggregation.aggregate_entities(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "s_o")
         return scores
 
     def score_sp_po(self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None) -> Tensor:
         # fetch and reduce model embeddings
         s_emb, p_emb, o_emb = self.fetch_model_embeddings(s, p, o)
-        s_emb = self.dim_reduction.reduce_entities(s_emb)
-        p_emb = self.dim_reduction.reduce_relations(p_emb)
-        o_emb = self.dim_reduction.reduce_entities(o_emb)
+        s_emb = self.aggregation.aggregate_entities(s_emb)
+        p_emb = self.aggregation.aggregate_relations(p_emb)
+        o_emb = self.aggregation.aggregate_entities(o_emb)
 
         # fetch and reduce additional entity subset
         sub_emb_list = []
@@ -96,8 +96,8 @@ class EmbeddingEnsemble(Ensemble):
             obj_emb_list.append(model_obj_emb)
         sub_emb = torch.cat(sub_emb_list, dim=1)
         obj_emb = torch.cat(obj_emb_list, dim=1)
-        sub_emb = self.dim_reduction.reduce_entities(sub_emb)
-        obj_emb = self.dim_reduction.reduce_entities(obj_emb)
+        sub_emb = self.aggregation.aggregate_entities(sub_emb)
+        obj_emb = self.aggregation.aggregate_entities(obj_emb)
 
         sp_scores = self.evaluator.score_emb(s_emb, p_emb, obj_emb, "sp_")
         po_scores = self.evaluator.score_emb(sub_emb, p_emb, o_emb, "_po")
