@@ -16,6 +16,9 @@ autoencoder:
   dropout: 0.2
 
 oneton:
+  entity_reduction: 0.75
+  relation_reduction: 0.75
+  epochs: 50
   entity_embedder:
     type: lookup_embedder
     +++: +++

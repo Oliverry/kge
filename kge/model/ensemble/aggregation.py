@@ -3,11 +3,12 @@ from collections import OrderedDict
 
 import torch
 from sklearn.decomposition import PCA
-from torch import nn, Tensor
+from torch import nn, Tensor, optim
 from torch.utils.data import Dataset, DataLoader
 
 from kge import Configurable, Config
 from kge.model import KgeEmbedder
+from kge.model.ensemble.aggregation_data import AggregationDataset, fetch_multiple_embeddings
 
 
 class AggregationBase(nn.Module, Configurable):
@@ -41,25 +42,13 @@ class AggregationBase(nn.Module, Configurable):
             self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
             self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
 
-    def aggregate_entities(self, t: Tensor, indexes=None):
+    def aggregate(self, target, indexes: Tensor = None):
         """
-        Execute a dimensionality reduction on the tensor of the form n times m times dim_m,
-        where n is the number of entities, m is the number of submodels and dim_m is the
-        length of the model embedding dimension
-        :param indexes:
-        :param t:
-        :return:
-        """
-        raise NotImplementedError
-
-    def aggregate_relations(self, t: Tensor, indexes):
-        """
-        Execute a dimensionality reduction on the tensor of the form n times m times dim_m,
-        where n is the number of relations, m is the number of submodels and dim_m is the
-        length of the model embedding dimension
-        :param indexes:
-        :param t:
-        :return:
+        Applies an aggregation function for the given indexes and the specified target of
+        embedder
+        :param target: Can have the values "s", "p" and "o"
+        :param indexes: Tensor of entity or relation indexes
+        :return: Aggregated embeddings of multiple models
         """
         raise NotImplementedError
 
@@ -72,12 +61,8 @@ class Concatenation(AggregationBase):
     def __init__(self, config, parent_configuration_key):
         AggregationBase.__init__(self, config, None, parent_configuration_key)
 
-    def aggregate_entities(self, t: Tensor, indexes=None):
-        n = t.size()[0]
-        res = t.view(n, -1)
-        return res
-
-    def aggregate_relations(self, t: Tensor, indexes=None):
+    def aggregate(self, target, indexes: Tensor = None):
+        t = fetch_multiple_embeddings(target, indexes)
         n = t.size()[0]
         res = t.view(n, -1)
         return res
@@ -101,50 +86,14 @@ class PcaReduction(AggregationBase):
         self.entity_pca = PCA(n_components=int(entity_dim))
         self.relation_pca = PCA(n_components=int(relation_dim))
 
-    def aggregate_entities(self, t: Tensor, indexes=None):
+    def aggregate(self, target, indexes: Tensor = None):
         t = torch.randn(2, 128)
         self.entity_pca.fit(t)
         res = self.entity_pca.transform(t)
         return res
 
-    def aggregate_relations(self, t: Tensor, indexes=None):
-        self.relation_pca.fit(t)
-        res = self.relation_pca.transform(t)
-        return res
-
     def train_aggregation(self, models):
         pass
-
-
-class DimReductionDataset(Dataset):
-    def __init__(self, models, mode="entity"):
-        """
-        Creates a new dataset for unsupervised learning of dimensionality reduction models.
-        The data has the format n times m times dim_m
-        :param models:
-        :param mode: either "entity" or "relation"
-        """
-        self.data = None
-        for idx, model in enumerate(models):
-            if mode == "entity":
-                # assuming subject and object embedder are the same
-                m_embeds = model.get_s_embedder().embed_all().detach()
-            elif mode == "relation":
-                m_embeds = model.get_p_embedder().embed_all().detach()
-            else:
-                raise ValueError
-            n = m_embeds.size()[0]
-            m_embeds = m_embeds.view(n, 1, -1)
-            if self.data is None:
-                self.data = m_embeds
-            elif self.data is not None:
-                self.data = torch.cat((self.data, m_embeds), 1)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return self.data[idx]
 
 
 class AutoencoderReduction(AggregationBase):
@@ -160,22 +109,20 @@ class AutoencoderReduction(AggregationBase):
         self.entity_model = Autoencoder(config, parent_configuration_key, "entities")
         self.relation_model = Autoencoder(config, parent_configuration_key, "relations")
 
-    def aggregate_entities(self, t: Tensor, indexes=None):
+    def aggregate(self, target, indexes: Tensor = None):
+        t = fetch_multiple_embeddings(target, indexes)
         n = t.size()[0]
-        entities = t.view(n, -1)  # transform tensor to format
-        entities = self.entity_model.reduce(entities)
-        return entities
-
-    def aggregate_relations(self, t: Tensor, indexes=None):
-        n = t.size()[0]
-        relations = t.view(n, -1)  # transform tensor to format
-        relations = self.relation_model.reduce(relations)
-        return relations
+        embeds = t.view(n, -1)  # transform tensor to autoencoder format
+        if target == "s" or target == "o":
+            embeds = self.entity_model.reduce(t)
+        elif target == "p":
+            embeds = self.relation_model.reduce(t)
+        return embeds
 
     def train_aggregation(self, models):
         # create dataloader
-        entity_dataloader = DataLoader(DimReductionDataset(models, "entity"), batch_size=10, shuffle=True)
-        relation_dataloader = DataLoader(DimReductionDataset(models, "relation"), batch_size=10, shuffle=True)
+        entity_dataloader = DataLoader(AggregationDataset(models, "entity"), batch_size=10, shuffle=True)
+        relation_dataloader = DataLoader(AggregationDataset(models, "relation"), batch_size=10, shuffle=True)
 
         print("Training entity autoencoder")
         self.train_model(entity_dataloader, self.entity_model)
@@ -259,9 +206,8 @@ class Autoencoder(nn.Module, Configurable):
 
 class OneToN(AggregationBase):
 
-    def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
+    def __init__(self, dataset: Dataset, config: Config, parent_configuration_key, init_for_load_only=False):
         AggregationBase.__init__(self, config, "oneton", parent_configuration_key)
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
 
         # modify embedder config
         entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
@@ -270,22 +216,25 @@ class OneToN(AggregationBase):
         self.set_option("relation_embedder.dim", relation_dim)
 
         # create embedders for metaembeddings
+        # TODO if init_for_load_only, load embeddings?
+        num_models = len(config.get(parent_configuration_key + ".submodels"))
         self._entity_embedder = KgeEmbedder.create(
             config,
             dataset,
             self.configuration_key + ".entity_embedder",
             dataset.num_entities(),
-            init_for_load_only=False,
+            init_for_load_only=init_for_load_only,
         )
         self._relation_embedder = KgeEmbedder.create(
             config,
             dataset,
             self.configuration_key + ".relation_embedder",
             dataset.num_relations(),
-            init_for_load_only=False,
+            init_for_load_only=init_for_load_only,
         )
 
         # create neural nets for metaembedding projection
+        # TODO do not load nets when evaluation?
         self.entity_nets = nn.ModuleList(
             [OneToNet(config, parent_configuration_key, "entities") for _ in range(0, num_models)]
         )
@@ -293,20 +242,55 @@ class OneToN(AggregationBase):
             [OneToNet(config, parent_configuration_key, "relations") for _ in range(0, num_models)]
         )
 
-    def aggregate_entities(self, t: Tensor, indexes=None):
-        if indexes is None:
-            return self._entity_embedder.embed_all()
-        else:
-            return self._entity_embedder.embed(indexes)
+        # get training parameters if training
+        if not init_for_load_only:
+            self.epochs = self.get_option("epochs")
 
-    def aggregate_relations(self, t: Tensor, indexes=None):
-        if indexes is None:
-            return self._entity_embedder.embed_all()
+    def aggregate(self, target, indexes: Tensor = None):
+        if target == "p":
+            if indexes is None:
+                return self._entity_embedder.embed_all()
+            else:
+                return self._entity_embedder.embed(indexes)
         else:
-            return self._relation_embedder.embed(indexes)
+            if indexes is None:
+                return self._relation_embedder.embed_all()
+            else:
+                return self._relation_embedder.embed(indexes)
 
     def train_aggregation(self, models):
-        pass
+        # create dataloader
+        entity_dataloader = DataLoader(AggregationDataset(models, "entity"), batch_size=10, shuffle=True)
+        relation_dataloader = DataLoader(AggregationDataset(models, "relation"), batch_size=10, shuffle=True)
+
+        print("Training entity autoencoder")
+        self.train_model(entity_dataloader, self.entity_nets, self._entity_embedder)
+
+        print("Training relation autoencoder")
+        self.train_model(relation_dataloader, self.relations_nets, self._relation_embedder)
+
+    def train_model(self, dataloader, models, embedder):
+        # Define the loss
+        criterion = nn.NLLLoss()
+        optimizer = optim.SGD(models.parameters(), lr=0.003)
+        for e in range(self.epochs):
+            running_loss = 0
+            for batch in dataloader:
+                # Training pass
+                optimizer.zero_grad()
+
+                for idx, net in enumerate(models):
+                    out = net(embedder)
+
+
+
+                # loss = criterion(output, labels)
+                # loss.backward()
+                # optimizer.step()
+
+                # running_loss += loss.item()
+            else:
+                print(f"Training loss: {running_loss / len(dataloader)}")
 
 
 class OneToNet(nn.Module, Configurable):
