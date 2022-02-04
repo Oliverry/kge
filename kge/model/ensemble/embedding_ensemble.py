@@ -4,10 +4,10 @@ from torch import Tensor
 from kge import Config, Dataset
 from kge.model import Ensemble
 from kge.model.ensemble.aggregation import AutoencoderReduction, PcaReduction, Concatenation, OneToN
-from kge.model.ensemble.aggregation_data import fetch_embedding
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 
 
+# TODO change embedding fetching
 class EmbeddingEnsemble(Ensemble):
 
     def __init__(
@@ -43,7 +43,7 @@ class EmbeddingEnsemble(Ensemble):
         elif evaluator_option == "finetuning":
             self.evaluator = FineTuning(dataset, config, self.configuration_key)
         else:
-            raise Exception("Unknown evaluator: "+evaluator_option)
+            raise Exception("Unknown evaluator: " + evaluator_option)
 
         # Start training of dimensionality reduction method
         if config.get("job.type") == "train":
