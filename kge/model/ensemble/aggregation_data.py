@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 from kge.model import KgeModel
 
 
-def fetch_multiple_embeddings(models, target, indexes: Tensor = None) -> Tensor:
+def fetch_model_embeddings(models, target, indexes: Tensor = None) -> Tensor:
     """
     Return tensor of size n times m times dim, where n is the length of the index tensor,
     m is the number of models and dim is the embedding length.
@@ -53,17 +53,15 @@ def fetch_embedding(model: KgeModel, target, idxs: Tensor = None) -> Tensor:
 
 
 class AggregationDataset(Dataset):
-    def __init__(self, target, models):
+    def __init__(self, data):
         """
         Creates a new dataset for unsupervised learning of aggregation models.
         The data has the format n times m times dim_m
         :param models:
-        :param mode: either "entity" or "relation"
+        :param target: either "entity" or "relation"
         """
         # TODO what if subject, object embedder are different?
-        embeds = fetch_multiple_embeddings(models, target)
-        self.data = embeds
-        torch.randn(1)
+        self.data = data
 
     def __len__(self):
         return len(self.data)

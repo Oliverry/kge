@@ -4,6 +4,7 @@ from torch import Tensor
 from kge import Config, Dataset
 from kge.model import Ensemble
 from kge.model.ensemble.aggregation import AutoencoderReduction, PcaReduction, Concatenation, OneToN
+from kge.model.ensemble.aggregation_data import fetch_embedding
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 
 
@@ -26,13 +27,13 @@ class EmbeddingEnsemble(Ensemble):
         aggregation_option = self.get_option("aggregation")
         evaluator_option = self.get_option("evaluator")
         if aggregation_option == "concat":
-            self.aggregation = Concatenation(config, self.configuration_key)
+            self.aggregation = Concatenation(self.submodels, config, self.configuration_key)
         elif aggregation_option == "pca":
-            self.aggregation = PcaReduction(config, self.configuration_key)
+            self.aggregation = PcaReduction(self.submodels, config, self.configuration_key)
         elif aggregation_option == "autoencoder":
-            self.aggregation = AutoencoderReduction(config, self.configuration_key)
+            self.aggregation = AutoencoderReduction(self.submodels, config, self.configuration_key)
         elif aggregation_option == "oneton":
-            self.aggregation = OneToN(dataset, config, self.configuration_key)
+            self.aggregation = OneToN(self.submodels, dataset, config, self.configuration_key)
         else:
             raise Exception("Unknown dimensionality reduction: " + aggregation_option)
 
