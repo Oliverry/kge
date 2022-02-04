@@ -7,7 +7,9 @@ embedding_ensemble:
   evaluator: kge_adapter
   entities:
     source_dim: 128
+    agg_dim: -1
     +++: +++
   relations:
     source_dim: 128
+    agg_dim: -1
     +++: +++

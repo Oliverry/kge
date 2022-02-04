@@ -18,6 +18,7 @@ class AggregationBase(nn.Module, Configurable):
         Initializes basic dim reduction variables.
         Updates the reduced dimensionality in embedding ensemble if entity_reduction and relation_reduction
         are given for the reduction model, else do a concatenation
+        If parameters are already set, do not update them
         :param config:
         :param configuration_key:
         :param parent_configuration_key:
@@ -39,8 +40,10 @@ class AggregationBase(nn.Module, Configurable):
                 relation_reduction = self.get_option("relation_reduction")
             entity_agg = math.floor(num_models * entity_dim * entity_reduction)
             relation_agg = math.floor(num_models * relation_dim * relation_reduction)
-            self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
-            self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
+            if self.config.get(parent_configuration_key + ".entities.agg_dim") < 0:
+                self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
+            if self.config.get(parent_configuration_key + ".relations.agg_dim") < 0:
+                self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
 
     def aggregate(self, target, indexes: Tensor = None):
         """
