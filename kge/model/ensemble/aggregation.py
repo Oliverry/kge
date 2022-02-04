@@ -249,14 +249,14 @@ class OneToN(AggregationBase):
     def aggregate(self, target, indexes: Tensor = None):
         if target == "p":
             if indexes is None:
-                return self._entity_embedder.embed_all()
-            else:
-                return self._entity_embedder.embed(indexes)
-        else:
-            if indexes is None:
                 return self._relation_embedder.embed_all()
             else:
                 return self._relation_embedder.embed(indexes)
+        else:
+            if indexes is None:
+                return self._entity_embedder.embed_all()
+            else:
+                return self._entity_embedder.embed(indexes)
 
     def train_aggregation(self, models):
         # create dataloader
@@ -271,24 +271,22 @@ class OneToN(AggregationBase):
 
     def train_model(self, dataloader, models, embedder):
         # Define the loss
-        criterion = nn.NLLLoss()
+        loss_func = nn.MSELoss()
         optimizer = optim.SGD(models.parameters(), lr=0.003)
         for e in range(self.epochs):
             running_loss = 0
-            for batch in dataloader:
-                # Training pass
+            for indexes, data in dataloader:
+                # zero the parameter gradients
                 optimizer.zero_grad()
 
-                for idx, net in enumerate(models):
-                    out = net(embedder)
-
-
-
-                # loss = criterion(output, labels)
-                # loss.backward()
-                # optimizer.step()
-
-                # running_loss += loss.item()
+                for m, net in enumerate(models):
+                    model_embeds = data[:, m]
+                    out = net(embedder.embed(indexes))
+                    loss = loss_func(out, model_embeds)
+                    loss.backward()
+                    optimizer.step()
+                    running_loss += loss.item()
+                # normalization of embedders
             else:
                 print(f"Training loss: {running_loss / len(dataloader)}")
 

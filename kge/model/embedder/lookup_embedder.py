@@ -87,7 +87,8 @@ class LookupEmbedder(KgeEmbedder):
         )
 
     def embed(self, indexes: Tensor) -> Tensor:
-        return self._postprocess(self._embeddings(indexes.long()))
+        embeds = self._embeddings(indexes.long())
+        return self._postprocess(embeds)
 
     def embed_all(self) -> Tensor:
         return self._postprocess(self._embeddings_all())

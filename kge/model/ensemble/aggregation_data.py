@@ -63,9 +63,10 @@ class AggregationDataset(Dataset):
         # TODO what if subject, object embedder are different?
         embeds = fetch_multiple_embeddings(models, target)
         self.data = embeds
+        torch.randn(1)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        return idx, self.data[idx]
