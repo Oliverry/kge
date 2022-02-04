@@ -121,8 +121,8 @@ class AutoencoderReduction(AggregationBase):
 
     def train_aggregation(self, models):
         # create dataloader
-        entity_dataloader = DataLoader(AggregationDataset(models, "entity"), batch_size=10, shuffle=True)
-        relation_dataloader = DataLoader(AggregationDataset(models, "relation"), batch_size=10, shuffle=True)
+        entity_dataloader = DataLoader(AggregationDataset("s", models), batch_size=10, shuffle=True)
+        relation_dataloader = DataLoader(AggregationDataset("p", models), batch_size=10, shuffle=True)
 
         print("Training entity autoencoder")
         self.train_model(entity_dataloader, self.entity_model)
@@ -260,8 +260,8 @@ class OneToN(AggregationBase):
 
     def train_aggregation(self, models):
         # create dataloader
-        entity_dataloader = DataLoader(AggregationDataset(models, "entity"), batch_size=10, shuffle=True)
-        relation_dataloader = DataLoader(AggregationDataset(models, "relation"), batch_size=10, shuffle=True)
+        entity_dataloader = DataLoader(AggregationDataset("s", models), batch_size=10, shuffle=True)
+        relation_dataloader = DataLoader(AggregationDataset("p", models), batch_size=10, shuffle=True)
 
         print("Training entity autoencoder")
         self.train_model(entity_dataloader, self.entity_nets, self._entity_embedder)

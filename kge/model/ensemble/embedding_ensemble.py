@@ -49,42 +49,42 @@ class EmbeddingEnsemble(Ensemble):
             self.aggregation.train_aggregation(self.submodels)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        s_emb = self.aggregation.aggregate(s)
-        p_emb = self.aggregation.aggregate(p)
-        o_emb = self.aggregation.aggregate(o)
+        s_emb = self.aggregation.aggregate("s", s)
+        p_emb = self.aggregation.aggregate("p", p)
+        o_emb = self.aggregation.aggregate("o", o)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "spo")
         return scores
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
-        s_emb = self.aggregation.aggregate(s)
-        p_emb = self.aggregation.aggregate(p)
-        o_emb = self.aggregation.aggregate(o)
+        s_emb = self.aggregation.aggregate("s", s)
+        p_emb = self.aggregation.aggregate("p", p)
+        o_emb = self.aggregation.aggregate("o", o)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "sp_")
         return scores
 
     def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
-        s_emb = self.aggregation.aggregate(s)
-        p_emb = self.aggregation.aggregate(p)
-        o_emb = self.aggregation.aggregate(o)
+        s_emb = self.aggregation.aggregate("s", s)
+        p_emb = self.aggregation.aggregate("p", p)
+        o_emb = self.aggregation.aggregate("o", o)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "_po")
         return scores
 
     def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
-        s_emb = self.aggregation.aggregate(s)
-        p_emb = self.aggregation.aggregate(p)
-        o_emb = self.aggregation.aggregate(o)
+        s_emb = self.aggregation.aggregate("s", s)
+        p_emb = self.aggregation.aggregate("p", p)
+        o_emb = self.aggregation.aggregate("o", o)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "s_o")
         return scores
 
     def score_sp_po(self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None) -> Tensor:
         # aggregate standard model embeddings
-        s_emb = self.aggregation.aggregate(s)
-        p_emb = self.aggregation.aggregate(p)
-        o_emb = self.aggregation.aggregate(o)
+        s_emb = self.aggregation.aggregate("s", s)
+        p_emb = self.aggregation.aggregate("p", p)
+        o_emb = self.aggregation.aggregate("o", o)
 
         # aggregate additional entity subset
-        sub_emb = self.aggregation.aggregate(entity_subset)
-        obj_emb = self.aggregation.aggregate(entity_subset)
+        sub_emb = self.aggregation.aggregate("s", entity_subset)
+        obj_emb = self.aggregation.aggregate("o", entity_subset)
 
         sp_scores = self.evaluator.score_emb(s_emb, p_emb, obj_emb, "sp_")
         po_scores = self.evaluator.score_emb(sub_emb, p_emb, o_emb, "_po")

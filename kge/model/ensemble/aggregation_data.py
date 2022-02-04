@@ -53,30 +53,16 @@ def fetch_embedding(model: KgeModel, target, idxs: Tensor = None) -> Tensor:
 
 
 class AggregationDataset(Dataset):
-    def __init__(self, models, target="entity"):
+    def __init__(self, target, models):
         """
         Creates a new dataset for unsupervised learning of aggregation models.
         The data has the format n times m times dim_m
         :param models:
         :param mode: either "entity" or "relation"
         """
-        self.data = None
-        for idx, model in enumerate(models):
-            if target == "entity":
-                if model.get_s_embedder() == model.get_o_embedder():
-                    m_embeds = fetch_embedding(model, "s")
-                else:
-                    raise Exception("Different embedders are not supported.")
-            elif target == "relation":
-                m_embeds = fetch_embedding(model, "p")
-            else:
-                raise ValueError("Unknown target for dataset creation.")
-            n = m_embeds.size()[0]
-            m_embeds = m_embeds.view(n, 1, -1)
-            if self.data is None:
-                self.data = m_embeds
-            elif self.data is not None:
-                self.data = torch.cat((self.data, m_embeds), 1)
+        # TODO what if subject, object embedder are different?
+        embeds = fetch_multiple_embeddings(models, target)
+        self.data = embeds
 
     def __len__(self):
         return len(self.data)
