@@ -6,7 +6,7 @@ from kge import Configurable, Config
 
 class ScoringEvaluator(nn.Module, Configurable):
 
-    def __init__(self, config: Config, configuration_key=None):
+    def __init__(self, config: Config, configuration_key):
         Configurable.__init__(self, config, configuration_key)
         torch.nn.Module.__init__(self)
 
@@ -17,62 +17,48 @@ class ScoringEvaluator(nn.Module, Configurable):
         """
         raise NotImplementedError
 
-    def evaluate(self, scores: Tensor, dim=0):
-        """
-        Takes a tensor of scores of the form n times E, where n is the number of spo triples
-        and E is the number of models.
-        Then the scores are combined row wise
-        :param scores:
-        :param dim:
-        :return:
-        """
-        raise NotImplementedError
-
 
 class AvgScoringEvaluator(ScoringEvaluator):
 
-    def __init__(self, config: Config, configuration_key=None):
-        super().__init__(config, configuration_key)
+    def __init__(self, config: Config):
+        super().__init__(config, None)
 
     def forward(self, scores: Tensor) -> Tensor:
-        res = torch.mean(scores, dim=1)
+        scores_sz = scores.size()
+        res = torch.mean(scores, dim=len(scores_sz)-1)
         return res
-
-    def evaluate(self, scores: Tensor, dim=0):
-        pass
 
 
 class PlattScalingEvaluator(ScoringEvaluator):
 
-    def __init__(self, config: Config, configuration_key=None):
-        super().__init__(config, configuration_key)
-        m = 2  # int(self.get_option("num_models"))
-        self.scalers = nn.ModuleList([PlattScaler(config, configuration_key) for _ in range(0, m)])
+    def __init__(self, config: Config, parent_configuration_key):
+        super().__init__(config, None)
+        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        self.scalers = nn.ModuleList([PlattScaler() for _ in range(0, num_models)])
 
     def forward(self, scores: Tensor) -> Tensor:
-        res = None
-        t = torch.transpose(scores, 0, 1)
+        scores_len = len(scores.size())
+        scores_list = []
+        t = torch.transpose(scores, scores_len-2, scores_len-1)
         for idx, scaler in enumerate(self.scalers):
-            tmp = t[idx]
-            tmp = torch.unsqueeze(tmp, dim=-1)
-            tmp = self.scalers[idx](tmp)
-            if res is None:
-                res = tmp
-            else:
-                res = torch.cat((res, tmp), 1)
-        res = torch.mean(res, dim=1)
+            scaler_scores = t[..., idx, :]
+            scaler_scores = torch.unsqueeze(scaler_scores, dim=-1)
+            scaler_scores = self.scalers[idx](scaler_scores)
+            scores_list.append(scaler_scores)
+        scores_comb = torch.cat(scores_list, dim=scores_len-1)
+        res = torch.mean(scores_comb, dim=scores_len-1)
         return res
 
 
 class PlattScaler(nn.Module):
 
-    def __init__(self, config: Config, configuration_key):
+    def __init__(self):
         super(PlattScaler, self).__init__()
         self.linear = nn.Linear(1, 1, bias=True)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, scores: Tensor) -> Tensor:
         t = self.linear(scores)
-        t = self.sigmoid(-t)
+        t = self.sigmoid(t)
         return t
 

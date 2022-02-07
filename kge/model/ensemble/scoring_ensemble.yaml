@@ -2,6 +2,4 @@ scoring_ensemble:
   class_name: ScoringEnsemble
   submodels: [transe,complex]
   evaluator: platt
-  plattscaling:
-    num_models: 2
 

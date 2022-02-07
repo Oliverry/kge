@@ -7,7 +7,6 @@ from kge.model.ensemble.aggregation import AutoencoderReduction, PcaReduction, C
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 
 
-# TODO change embedding fetching
 class EmbeddingEnsemble(Ensemble):
 
     def __init__(

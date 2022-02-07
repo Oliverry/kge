@@ -11,6 +11,7 @@ from kge.model import KgeEmbedder
 from kge.model.ensemble.aggregation_data import AggregationDataset, fetch_model_embeddings
 
 
+# TODO change embedding fetching
 class AggregationBase(nn.Module, Configurable):
 
     def __init__(self, models, config: Config, configuration_key, parent_configuration_key):
