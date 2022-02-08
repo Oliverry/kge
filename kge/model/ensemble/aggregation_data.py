@@ -30,11 +30,11 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
     :param indexes: Given indexes
     :return: Tensor of embeddings with shape n x 1 x E
     """
-    # bool if model scores with rotate
+    # check if certain type of model is used
     is_rotate = isinstance(model, RotatE) or (isinstance(model, ReciprocalRelationsModel) and
-                                             isinstance(model.base_model(), RotatE))
+                                              isinstance(model.base_model(), RotatE))
     is_conve = isinstance(model, ConvE) or (isinstance(model, ReciprocalRelationsModel) and
-                                             isinstance(model.base_model(), ConvE))
+                                            isinstance(model.base_model(), ConvE))
 
     # check if reciprocal relations model is used and split relation embedding
     if target == "p" and isinstance(model, ReciprocalRelationsModel):
@@ -69,8 +69,8 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
     # check if conve model and remove bias term hack
     if is_conve:
         out_sz = out.size()
-        emb_dim = out_sz[len(out_sz)-1]
-        out = out[..., :emb_dim-1]
+        emb_dim = out_sz[len(out_sz) - 1]
+        out = out[..., :emb_dim - 1]
 
     # check if rotate model is used and convert relation embedding
     if target == "p" and is_rotate:
