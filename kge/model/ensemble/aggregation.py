@@ -116,19 +116,19 @@ class AutoencoderReduction(AggregationBase):
         self.relation_model = Autoencoder(config, parent_configuration_key, "relations")
 
     def aggregate(self, target, indexes: Tensor = None):
-        t = fetch_model_embeddings(self.models, target, indexes)
-        n = t.size()[0]
-        embeds = t.view(n, -1)  # transform tensor to autoencoder format
+        embeds = fetch_model_embeddings(self.models, target, indexes)
+        n = embeds.size()[0]
+        embeds = embeds.view(n, -1)  # transform tensor to autoencoder format
         if target == "s" or target == "o":
-            embeds = self.entity_model.reduce(t)
+            embeds = self.entity_model.reduce(embeds)
         elif target == "p":
-            embeds = self.relation_model.reduce(t)
+            embeds = self.relation_model.reduce(embeds)
         return embeds
 
     def train_aggregation(self, models):
         # create dataloader
-        s_embs = self.ensemble.fetch_model_embeddings("s")
-        p_embs = self.ensemble.fetch_model_embeddings("p")
+        s_embs = fetch_model_embeddings(self.models, "s")
+        p_embs = fetch_model_embeddings(self.models, "p")
         entity_dataloader = DataLoader(AggregationDataset(s_embs), batch_size=10, shuffle=True)
         relation_dataloader = DataLoader(AggregationDataset(p_embs), batch_size=10, shuffle=True)
 
@@ -146,7 +146,7 @@ class AutoencoderReduction(AggregationBase):
         optimizer = torch.optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         for epoch in range(self.epochs):
             loss_val = 0
-            for batch in dataloader:
+            for _, batch in dataloader:
                 n = batch.size()[0]
                 embeds = batch.view(n, -1)
 
@@ -174,7 +174,10 @@ class Autoencoder(nn.Module, Configurable):
         num_models = len(config.get(parent_configuration_key + ".submodels"))
         source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
         reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
-        self.dim_in = num_models * source_dim
+        num_rrm = 0
+        if embedding_configuration_key == "relations":
+            num_rrm = config.get(parent_configuration_key + ".num_rrm")
+        self.dim_in = (num_models + num_rrm) * source_dim
         self.dim_out = reduced_dim
         self.num_layers = self.get_option("num_layers")
         self.dropout = self.get_option("dropout")

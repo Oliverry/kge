@@ -38,7 +38,9 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
     if target == "p" and isinstance(model, ReciprocalRelationsModel):
         if indexes is None:
             out_rrm = model.get_p_embedder().embed_all()
-            out_one, out_two = torch.tensor_split(out_rrm, 2)
+            half_t = int(out_rrm.size()[0]/2)
+            out_one = out_rrm[:half_t]
+            out_two = out_rrm[half_t:]
         else:
             out_one = model.get_p_embedder().embed(indexes)
             out_two = model.get_p_embedder().embed(indexes + model.dataset.num_relations())
