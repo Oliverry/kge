@@ -31,10 +31,8 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
     :return: Tensor of embeddings with shape n x 1 x E
     """
     # check if certain type of model is used
-    is_rotate = isinstance(model, RotatE) or (isinstance(model, ReciprocalRelationsModel) and
-                                              isinstance(model.base_model(), RotatE))
-    is_conve = isinstance(model, ConvE) or (isinstance(model, ReciprocalRelationsModel) and
-                                            isinstance(model.base_model(), ConvE))
+    is_rotate = contains_model(model, RotatE)
+    is_conve = contains_model(model, ConvE)
 
     # check if reciprocal relations model is used and split relation embedding
     if target == "p" and isinstance(model, ReciprocalRelationsModel):
@@ -78,6 +76,11 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
         img = torch.sin(out)
         out = torch.cat((re, img), dim=2)
     return out.detach()
+
+
+def contains_model(model, class_name):
+    contained = (isinstance(model, ReciprocalRelationsModel) and isinstance(model.base_model(), class_name))
+    return contained or isinstance(model, class_name)
 
 
 class AggregationDataset(Dataset):
