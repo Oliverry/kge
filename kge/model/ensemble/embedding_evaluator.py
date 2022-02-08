@@ -40,10 +40,11 @@ class KgeAdapter(EmbeddingEvaluator):
         class_name = config.get(model_name + ".class_name")
 
         # if embedders are used, change embedding size to aggregated dimensions
-        if config.exists(model_name + ".entity_embedder"):
-            config.set(model_name + ".entity_embedder.dim", self.entity_dim, create=True)
-        if config.exists(model_name + ".relation_embedder"):
-            config.set(model_name + ".relation_embedder.dim", self.relation_dim, create=True)
+        dim_options = {
+            self.configuration_key+".model.entity_embedder.dim": self.entity_dim,
+            self.configuration_key+".model.relation_embedder.dim": self.relation_dim
+        }
+        self.config.load_options(dim_options, create=True)
 
         # try to create model
         try:
