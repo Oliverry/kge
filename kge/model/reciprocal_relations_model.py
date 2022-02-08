@@ -55,6 +55,9 @@ class ReciprocalRelationsModel(KgeModel):
     def penalty(self, **kwargs):
         return self._base_model.penalty(**kwargs)
 
+    def base_model(self):
+        return self._base_model
+
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         if direction == "o":
             return super().score_spo(s, p, o, "o")

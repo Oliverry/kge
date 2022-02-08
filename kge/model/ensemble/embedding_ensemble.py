@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 
 from kge import Config, Dataset
-from kge.model import Ensemble
+from kge.model import Ensemble, ReciprocalRelationsModel
 from kge.model.ensemble.aggregation import AutoencoderReduction, PcaReduction, Concatenation, OneToN
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 
@@ -22,6 +22,14 @@ class EmbeddingEnsemble(Ensemble):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
+
+        # check number of reciprocal relations models
+        num_rrm = 0
+        for model in self.submodels:
+            if isinstance(model, ReciprocalRelationsModel):
+                num_rrm += 1
+        self.set_option("num_rrm", num_rrm)
+
         # Lookup and initiate dimensionality reduction method
         aggregation_option = self.get_option("aggregation")
         evaluator_option = self.get_option("evaluator")

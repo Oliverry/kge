@@ -40,8 +40,9 @@ class AggregationBase(nn.Module, Configurable):
             relation_reduction = 1.0
             if self.has_option("relation_reduction"):
                 relation_reduction = self.get_option("relation_reduction")
+            num_rmm = config.get(parent_configuration_key + ".num_rrm")
             entity_agg = math.floor(num_models * entity_dim * entity_reduction)
-            relation_agg = math.floor(num_models * relation_dim * relation_reduction)
+            relation_agg = math.floor((num_models + num_rmm) * relation_dim * relation_reduction)
             if self.config.get(parent_configuration_key + ".entities.agg_dim") < 0:
                 self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
             if self.config.get(parent_configuration_key + ".relations.agg_dim") < 0:
