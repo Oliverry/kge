@@ -36,31 +36,23 @@ class KgeAdapter(EmbeddingEvaluator):
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
         EmbeddingEvaluator.__init__(self, config, "kge_adapter", parent_configuration_key)
 
-        # create model specific configuration
-        model_config = Config()
-        model_config.folder = config.folder
-        model_config.log_folder = config.log_folder
-        model_config.log_prefix = config.log_prefix
-        model_name = self.get_option("model")
-        model_options = {"model": model_name,
-                         model_name: copy.deepcopy(config.options["kge_adapter"][model_name])}
-        model_config.load_options(model_options)
-        class_name = model_config.get(model_name + ".class_name")
+        model_name = self.get_option("model.type")
+        class_name = config.get(model_name + ".class_name")
 
         # if embedders are used, change embedding size to aggregated dimensions
-        if "entity_embedder" in model_config.options[model_name]:
-            model_config.set(model_name + ".entity_embedder.dim", self.entity_dim, create=True)
-        if "relation_embedder" in model_config.options[model_name]:
-            model_config.set(model_name + ".relation_embedder.dim", self.relation_dim, create=True)
+        if config.exists(model_name + ".entity_embedder"):
+            config.set(model_name + ".entity_embedder.dim", self.entity_dim, create=True)
+        if config.exists(model_name + ".relation_embedder"):
+            config.set(model_name + ".relation_embedder.dim", self.relation_dim, create=True)
 
         # try to create model
         try:
             self.model = init_from(
                 class_name,
                 config.get("modules"),
-                config=model_config,
+                config=config,
                 dataset=dataset,
-                configuration_key=None,
+                configuration_key=self.configuration_key + ".model",
                 init_for_load_only=True
             )
             self.model.to(config.get("job.device"))
