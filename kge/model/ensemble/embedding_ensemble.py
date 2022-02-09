@@ -1,5 +1,6 @@
 import torch
 from torch import Tensor
+import torch.nn.functional
 
 from kge import Config, Dataset
 from kge.model import Ensemble, ReciprocalRelationsModel
@@ -23,6 +24,7 @@ class EmbeddingEnsemble(Ensemble):
             init_for_load_only=init_for_load_only,
         )
 
+        self.normalize_p = self.get_option("normalize_p")
         # check number of reciprocal relations models
         num_rrm = 0
         for model in self.submodels:
@@ -60,6 +62,9 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate("s", s)
         p_emb = self.aggregation.aggregate("p", p)
         o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.postprocess(s_emb)
+        p_emb = self.postprocess(p_emb)
+        o_emb = self.postprocess(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "spo")
         return scores
 
@@ -67,6 +72,9 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate("s", s)
         p_emb = self.aggregation.aggregate("p", p)
         o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.postprocess(s_emb)
+        p_emb = self.postprocess(p_emb)
+        o_emb = self.postprocess(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "sp_")
         return scores
 
@@ -74,6 +82,9 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate("s", s)
         p_emb = self.aggregation.aggregate("p", p)
         o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.postprocess(s_emb)
+        p_emb = self.postprocess(p_emb)
+        o_emb = self.postprocess(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "_po")
         return scores
 
@@ -81,6 +92,9 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate("s", s)
         p_emb = self.aggregation.aggregate("p", p)
         o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.postprocess(s_emb)
+        p_emb = self.postprocess(p_emb)
+        o_emb = self.postprocess(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "s_o")
         return scores
 
@@ -89,13 +103,24 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate("s", s)
         p_emb = self.aggregation.aggregate("p", p)
         o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.postprocess(s_emb)
+        p_emb = self.postprocess(p_emb)
+        o_emb = self.postprocess(o_emb)
 
         # aggregate additional entity subset
         sub_emb = self.aggregation.aggregate("s", entity_subset)
         obj_emb = self.aggregation.aggregate("o", entity_subset)
+        sub_emb = self.postprocess(sub_emb)
+        obj_emb = self.postprocess(obj_emb)
 
         sp_scores = self.evaluator.score_emb(s_emb, p_emb, obj_emb, "sp_")
         po_scores = self.evaluator.score_emb(sub_emb, p_emb, o_emb, "_po")
 
         res = torch.cat((sp_scores, po_scores), dim=1)
         return res
+
+    def postprocess(self, embed: Tensor) -> Tensor:
+        if self.normalize_p > 0:
+            with torch.no_grad():
+                embed = torch.nn.functional.normalize(embed, p=self.normalize_p, dim=1)
+        return embed
