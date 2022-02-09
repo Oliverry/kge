@@ -13,10 +13,12 @@ class MultiLayerPerceptronScorer(RelationalScorer):
         entity_dim = self.get_option("entity_embedder.dim")
         relation_dim = self.get_option("relation_embedder.dim")
         dim_in = 2 * entity_dim + relation_dim
-        dim_t = self.get_option("dim_t")
-        self.linear1 = nn.Linear(dim_in, dim_t)  # embedding concatenation (spo) -> entitiy embedding size
+        layer_dim = self.get_option("layer_dim")
+        if layer_dim < 0:
+            layer_dim = entity_dim
+        self.linear1 = nn.Linear(dim_in, layer_dim)  # embedding concatenation (spo) -> entitiy embedding size
         self.tanh = nn.Tanh()
-        self.linear2 = nn.Linear(dim_t, 1)  # entity embedding size -> 1
+        self.linear2 = nn.Linear(layer_dim, 1)  # entity embedding size -> 1
         self.sigmoid = nn.Sigmoid()
 
     def score_emb_spo(self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor) -> Tensor:

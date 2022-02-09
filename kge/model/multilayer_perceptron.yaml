@@ -8,5 +8,5 @@ multilayer_perceptron:
   relation_embedder:
     type: lookup_embedder
     +++: +++
-  dim_t: 100
+  layer_dim: -1
 
