@@ -28,23 +28,20 @@ class AggregationBase(nn.Module, Configurable):
         nn.Module.__init__(self)
         self.models = models
 
-        # compute aggregated dimension
-        parent_configuration_key = parent_configuration_key
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
-        entity_dim = config.get(parent_configuration_key + ".entities.source_dim")
-        relation_dim = config.get(parent_configuration_key + ".relations.source_dim")
-        entity_reduction = 1.0
-        if self.has_option("entity_reduction"):
-            entity_reduction = self.get_option("entity_reduction")
-        relation_reduction = 1.0
-        if self.has_option("relation_reduction"):
-            relation_reduction = self.get_option("relation_reduction")
-        num_rmm = config.get(parent_configuration_key + ".num_rrm")
-        entity_agg = math.floor(num_models * entity_dim * entity_reduction)
-        relation_agg = math.floor((num_models + num_rmm) * relation_dim * relation_reduction)
+        # compute and set aggregated dimension
         if self.config.get(parent_configuration_key + ".entities.agg_dim") < 0:
+            entity_dim = config.get(parent_configuration_key + ".entities.source_dim")
+            entity_reduction = 1.0
+            if self.has_option("entity_reduction"):
+                entity_reduction = self.get_option("entity_reduction")
+            entity_agg = round(entity_dim * entity_reduction)
             self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
         if self.config.get(parent_configuration_key + ".relations.agg_dim") < 0:
+            relation_dim = config.get(parent_configuration_key + ".relations.source_dim")
+            relation_reduction = 1.0
+            if self.has_option("relation_reduction"):
+                relation_reduction = self.get_option("relation_reduction")
+            relation_agg = round(relation_dim * relation_reduction)
             self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
 
     def aggregate(self, target, indexes: Tensor = None):
@@ -180,7 +177,7 @@ class Autoencoder(nn.Module, Configurable):
         if embedding_configuration_key == "relations":
             num_rrm = config.get(parent_configuration_key + ".num_rrm")
         self.dim_in = (num_models + num_rrm) * source_dim
-        self.dim_out = reduced_dim
+        self.dim_out = num_models * reduced_dim
         self.num_layers = self.get_option("num_layers")
         self.dropout = self.get_option("dropout")
 
