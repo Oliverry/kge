@@ -38,7 +38,7 @@ class EmbeddingEnsemble(Ensemble):
         if aggregation_option == "concat":
             self.aggregation = Concatenation(self.model_manager, config, self.configuration_key)
         elif aggregation_option == "pca":
-            self.aggregation = PcaReduction(self.model_manager, config, self.configuration_key)
+            self.aggregation = PcaReduction(self.model_manager, dataset, config, self.configuration_key)
         elif aggregation_option == "autoencoder":
             self.aggregation = AutoencoderReduction(self.model_manager, config, self.configuration_key)
         elif aggregation_option == "oneton":

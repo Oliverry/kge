@@ -78,26 +78,44 @@ class Concatenation(AggregationBase):
 
 class PcaReduction(AggregationBase):
 
-    def __init__(self, model_manager:ModelManager, dataset, config, parent_configuration_key):
+    def __init__(self, model_manager: ModelManager, dataset, config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "pca", parent_configuration_key)
 
         num_models = len(config.get(parent_configuration_key + ".submodels"))
-        entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
-        relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
+        self.entity_dim = config.get(parent_configuration_key + ".entities.agg_dim") * num_models
+        self.relation_dim = config.get(parent_configuration_key + ".relations.agg_dim") * num_models
 
-        self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), entity_dim * num_models)
-        self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), relation_dim * num_models)
+        self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), self.entity_dim)
+        self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), self.relation_dim)
 
     def aggregate(self, target, indexes: Tensor = None):
-        t = torch.randn(2, 128)
-        self.entity_pca.fit(t)
-        res = self.entity_pca.transform(t)
-        return res
+        if target == "s" or target == "o":
+            return self._entity_embedder(indexes)
+        elif target == "p":
+            return self._relation_embedder(indexes)
+        else:
+            raise ValueError("Unknown target embedding.")
 
     def train_aggregation(self):
-        # self.entity_embedder = PCA(n_components=entity_dim * num_models)
-        # self.relation_pca = PCA(n_components=relation_dim * (num_models + num_rrm))
-        pass
+        # create pca models
+        entity_pca = PCA(n_components=self.entity_dim)
+        relation_pca = PCA(n_components=self.relation_dim)
+
+        # fetch and preprocess embeddings
+        entity_embeds = self.model_manager.fetch_model_embeddings("s")
+        relation_embeds = self.model_manager.fetch_model_embeddings("p")
+        n = entity_embeds.size()[0]
+        m = relation_embeds.size()[0]
+        entity_embeds = entity_embeds.view(n, -1)
+        relation_embeds = relation_embeds.view(m, -1)
+
+        # prior normalization
+
+        entity_embeds = entity_pca.fit_transform(entity_embeds)  # maybe change to numpy
+        relation_embeds = relation_pca.fit_transform(relation_embeds)
+
+        self._entity_embedder = nn.Embedding.from_pretrained(entity_embeds)
+        self._relation_embedder = nn.Embedding.from_pretrained(relation_embeds)
 
 
 class AutoencoderReduction(AggregationBase):
