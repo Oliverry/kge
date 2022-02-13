@@ -78,6 +78,7 @@ class Concatenation(AggregationBase):
 
 class PcaReduction(AggregationBase):
 
+    # TODO use torch.long
     def __init__(self, model_manager: ModelManager, dataset, config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "pca", parent_configuration_key)
 
@@ -114,8 +115,8 @@ class PcaReduction(AggregationBase):
         entity_embeds = entity_pca.fit_transform(entity_embeds)  # maybe change to numpy
         relation_embeds = relation_pca.fit_transform(relation_embeds)
 
-        self._entity_embedder = nn.Embedding.from_pretrained(entity_embeds)
-        self._relation_embedder = nn.Embedding.from_pretrained(relation_embeds)
+        self._entity_embedder = nn.Embedding.from_pretrained(torch.tensor(entity_embeds, dtype=torch.float))
+        self._relation_embedder = nn.Embedding.from_pretrained(torch.tensor(relation_embeds, dtype=torch.float))
 
 
 class AutoencoderReduction(AggregationBase):
