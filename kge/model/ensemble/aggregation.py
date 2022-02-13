@@ -126,6 +126,7 @@ class AutoencoderReduction(AggregationBase):
 
     def train_aggregation(self, models):
         # create dataloader
+        # TODO change to one embedder for s and o
         s_embs = fetch_model_embeddings(self.models, "s")
         p_embs = fetch_model_embeddings(self.models, "p")
         entity_dataloader = DataLoader(AggregationDataset(s_embs), batch_size=30, shuffle=True)

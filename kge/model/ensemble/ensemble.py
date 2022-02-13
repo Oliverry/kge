@@ -35,7 +35,10 @@ class Ensemble(KgeModel):
         )
         self.submodels = []
         for model_name in self.get_option("submodels"):
-            self.submodels.append(self.load_pretrained_model(model_name))
+            model = self.load_pretrained_model(model_name)
+            if not model.get_s_embedder() is model.get_o_embedder():
+                raise Exception("Ensemble only support KGE models with the same s and o embedder. Exception: "+model_name)
+            self.submodels.append(model)
 
     def load_pretrained_model(self, model_name) -> KgeModel:
         """
