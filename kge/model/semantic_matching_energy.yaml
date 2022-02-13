@@ -8,5 +8,6 @@ semantic_matching_energy:
   relation_embedder:
     type: lookup_embedder
     +++: +++
-  emb_dim: 100
+  g_func: linear # alternative: bilinear
+  layer_dim: -1
 

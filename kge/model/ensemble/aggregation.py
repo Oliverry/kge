@@ -28,25 +28,24 @@ class AggregationBase(nn.Module, Configurable):
         nn.Module.__init__(self)
         self.models = models
 
-        # update reduced embedding size in config in case of training
-        if config.get("job.type") == "train":
-            parent_configuration_key = parent_configuration_key
-            num_models = len(config.get(parent_configuration_key + ".submodels"))
-            entity_dim = config.get(parent_configuration_key + ".entities.source_dim")
-            relation_dim = config.get(parent_configuration_key + ".relations.source_dim")
-            entity_reduction = 1.0
-            if self.has_option("entity_reduction"):
-                entity_reduction = self.get_option("entity_reduction")
-            relation_reduction = 1.0
-            if self.has_option("relation_reduction"):
-                relation_reduction = self.get_option("relation_reduction")
-            num_rmm = config.get(parent_configuration_key + ".num_rrm")
-            entity_agg = math.floor(num_models * entity_dim * entity_reduction)
-            relation_agg = math.floor((num_models + num_rmm) * relation_dim * relation_reduction)
-            if self.config.get(parent_configuration_key + ".entities.agg_dim") < 0:
-                self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
-            if self.config.get(parent_configuration_key + ".relations.agg_dim") < 0:
-                self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
+        # compute aggregated dimension
+        parent_configuration_key = parent_configuration_key
+        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        entity_dim = config.get(parent_configuration_key + ".entities.source_dim")
+        relation_dim = config.get(parent_configuration_key + ".relations.source_dim")
+        entity_reduction = 1.0
+        if self.has_option("entity_reduction"):
+            entity_reduction = self.get_option("entity_reduction")
+        relation_reduction = 1.0
+        if self.has_option("relation_reduction"):
+            relation_reduction = self.get_option("relation_reduction")
+        num_rmm = config.get(parent_configuration_key + ".num_rrm")
+        entity_agg = math.floor(num_models * entity_dim * entity_reduction)
+        relation_agg = math.floor((num_models + num_rmm) * relation_dim * relation_reduction)
+        if self.config.get(parent_configuration_key + ".entities.agg_dim") < 0:
+            self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
+        if self.config.get(parent_configuration_key + ".relations.agg_dim") < 0:
+            self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
 
     def aggregate(self, target, indexes: Tensor = None):
         """
@@ -129,8 +128,8 @@ class AutoencoderReduction(AggregationBase):
         # create dataloader
         s_embs = fetch_model_embeddings(self.models, "s")
         p_embs = fetch_model_embeddings(self.models, "p")
-        entity_dataloader = DataLoader(AggregationDataset(s_embs), batch_size=10, shuffle=True)
-        relation_dataloader = DataLoader(AggregationDataset(p_embs), batch_size=10, shuffle=True)
+        entity_dataloader = DataLoader(AggregationDataset(s_embs), batch_size=30, shuffle=True)
+        relation_dataloader = DataLoader(AggregationDataset(p_embs), batch_size=30, shuffle=True)
 
         print("Training entity autoencoder")
         self.train_model(entity_dataloader, self.entity_model)
@@ -171,6 +170,8 @@ class Autoencoder(nn.Module, Configurable):
     def __init__(self, config: Config, parent_configuration_key, embedding_configuration_key):
         super(Autoencoder, self).__init__()
         Configurable.__init__(self, config, "autoencoder")
+
+        # get basic model configuration
         num_models = len(config.get(parent_configuration_key + ".submodels"))
         source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
         reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
@@ -182,23 +183,30 @@ class Autoencoder(nn.Module, Configurable):
         self.num_layers = self.get_option("num_layers")
         self.dropout = self.get_option("dropout")
 
+        # construct model layers and combine them
+        encode_dict = OrderedDict()
+        decode_dict = OrderedDict()
+
         layer_dims = [
             round(self.dim_in - n * ((self.dim_in - self.dim_out) / self.num_layers)) for n in range(0, self.num_layers)
         ]
         layer_dims.append(self.dim_out)
 
-        encode_dict = OrderedDict()
+        i = 0
         for idx in range(0, self.num_layers):
-            encode_dict["dropout" + str(idx)] = nn.Dropout(p=self.dropout)
-            encode_dict["linear" + str(idx)] = nn.Linear(layer_dims[idx], layer_dims[idx + 1])
+            encode_dict[str(i) + "-dropout"] = nn.Dropout(p=self.dropout)
+            i += 1
+            encode_dict[str(i) + "-linear"] = nn.Linear(layer_dims[idx], layer_dims[idx + 1], bias=True)
+            i += 1
             if idx + 1 < self.num_layers:
-                encode_dict["relu" + str(idx)] = nn.ReLU()
-
-        decode_dict = OrderedDict()
+                encode_dict[str(i) + "-relu"] = nn.ReLU()
+                i += 1
         for idx in reversed(range(0, self.num_layers)):
-            decode_dict["linear" + str(idx)] = nn.Linear(layer_dims[idx + 1], layer_dims[idx])
+            decode_dict[str(i) + "-linear"] = nn.Linear(layer_dims[idx + 1], layer_dims[idx], bias=True)
+            i += 1
             if idx > 0:
-                decode_dict["relu" + str(idx)] = nn.ReLU()
+                decode_dict[str(i) + "-relu"] = nn.ReLU()
+                i += 1
 
         self.encoder = torch.nn.Sequential(encode_dict)
         self.decoder = torch.nn.Sequential(decode_dict)

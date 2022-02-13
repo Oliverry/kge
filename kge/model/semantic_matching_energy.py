@@ -10,18 +10,33 @@ class SmeScorer(RelationalScorer):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
-        ent_emb_dim = 256  # self.get_option("entity_embedder.dim")
-        rel_emb_dim = 256  # self.get_option("relation_embedder.dim")
-        self.emb_dim = self.get_option("emb_dim")
-        self.sp_linear = torch.nn.Linear(ent_emb_dim + rel_emb_dim, self.emb_dim)
-        self.op_linear = torch.nn.Linear(rel_emb_dim + ent_emb_dim, self.emb_dim)
+        entity_dim = self.get_option("entity_embedder.dim")
+        relation_dim = self.get_option("relation_embedder.dim")
+        self.g_func = self.get_option("g_func")
+        layer_dim = self.get_option("layer_dim")
+        if layer_dim < 0:
+            layer_dim = entity_dim
+        if self.g_func == "linear":
+            self.sp_linear = torch.nn.Linear(entity_dim + relation_dim, layer_dim, bias=True)
+            self.op_linear = torch.nn.Linear(relation_dim + entity_dim, layer_dim, bias=True)
+        elif self.g_func == "bilinear":
+            self.sp_bilinear = torch.nn.Bilinear(entity_dim, relation_dim, entity_dim, bias=True)
+            self.po_bilinear = torch.nn.Bilinear(relation_dim, entity_dim, entity_dim, bias=True)
+        else:
+            raise ValueError
 
     def score_emb_spo(self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor) -> Tensor:
         n = s_emb.size()[0]
-        sp_embed = torch.cat((s_emb, p_emb), 1)
-        op_embed = torch.cat((o_emb, p_emb), 1)
-        sp_embed = self.sp_linear(sp_embed)
-        op_embed = self.op_linear(op_embed)
+        if self.g_func == "linear":
+            sp_embed = torch.cat((s_emb, p_emb), 1)
+            op_embed = torch.cat((o_emb, p_emb), 1)
+            sp_embed = self.sp_linear(sp_embed)
+            op_embed = self.op_linear(op_embed)
+        elif self.g_func == "bilinear":
+            sp_embed = self.sp_bilinear(s_emb, p_emb)
+            op_embed = self.sp_bilinear(p_emb, o_emb)
+        else:
+            raise ValueError
         res = torch.einsum('ij,ij->i', sp_embed, op_embed)  # compute row-wise dot product
         return res.view(n)
 

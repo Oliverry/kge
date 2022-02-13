@@ -63,6 +63,12 @@ class Dataset(Configurable):
         #: data derived automatically from the splits or meta data. Indexed by key.
         self._indexes: Dict[str, Any] = {}
 
+        #: literal vector for each entity
+        self._literals: Dict[str, Any] = {}
+
+        #: description text for each entity
+        self._description: Dict[str, Any] = {}
+
         #: functions that compute and add indexes as needed; arguments are dataset and
         #: key. Index functions are expected to not recompute an index that is already
         #: present. Indexed by key (same key as in self._indexes)
@@ -96,7 +102,7 @@ class Dataset(Configurable):
 
         """
         name = config.get("dataset.name")
-            
+
         root_modules = list(set(m.split(".")[0] for m in config.get("modules")))
         if folder is None:
             for m in root_modules:
@@ -115,14 +121,16 @@ class Dataset(Configurable):
             dataset.relation_ids()
             for split in ["train", "valid", "test"]:
                 dataset.split(split)
+            # dataset.load_literals()
+            # dataset.load_descriptions()
         return dataset
 
     @staticmethod
     def create_from(
-        checkpoint: Dict,
-        config: Config = None,
-        dataset: Optional[Dataset] = None,
-        preload_data=False,
+            checkpoint: Dict,
+            config: Config = None,
+            dataset: Optional[Dataset] = None,
+            preload_data=False,
     ) -> Dataset:
         """Creates dataset based on a checkpoint.
 
@@ -145,8 +153,8 @@ class Dataset(Configurable):
         if "dataset" in checkpoint:
             dataset_checkpoint = checkpoint["dataset"]
             if (
-                "dataset.meta" in dataset_checkpoint
-                and dataset_checkpoint["meta"] is not None
+                    "dataset.meta" in dataset_checkpoint
+                    and dataset_checkpoint["meta"] is not None
             ):
                 dataset._meta.update(dataset_checkpoint["meta"])
             dataset._num_entities = dataset_checkpoint["num_entities"]
@@ -216,11 +224,11 @@ class Dataset(Configurable):
 
     @staticmethod
     def _load_map(
-        filename: str,
-        as_list: bool = False,
-        delimiter: str = "\t",
-        ignore_duplicates=False,
-        use_pickle=False,
+            filename: str,
+            as_list: bool = False,
+            delimiter: str = "\t",
+            ignore_duplicates=False,
+            use_pickle=False,
     ) -> Union[List, Dict]:
         if use_pickle:
             # check if there is a pickled, up-to-date version of the file
@@ -262,12 +270,12 @@ class Dataset(Configurable):
         return result
 
     def load_map(
-        self,
-        key: str,
-        as_list: bool = False,
-        maptype=None,
-        ids_key=None,
-        ignore_duplicates=False,
+            self,
+            key: str,
+            as_list: bool = False,
+            maptype=None,
+            ids_key=None,
+            ignore_duplicates=False,
     ) -> Union[List, Dict]:
         """Load or return the map with the specified key.
 
@@ -289,7 +297,7 @@ class Dataset(Configurable):
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if (maptype and filetype != maptype) or (
-                not maptype and filetype not in ["map", "idmap"]
+                    not maptype and filetype not in ["map", "idmap"]
             ):
                 if not maptype:
                     maptype = "map' or 'idmap"
@@ -375,7 +383,7 @@ class Dataset(Configurable):
         return newest_timestamp
 
     def _pickle_load_if_uptodate(
-        self, pickle_filename: str, data_filenames: List[str] = None
+            self, pickle_filename: str, data_filenames: List[str] = None
     ):
         """Load the specified pickle file if it's up-to-date.
 
@@ -387,7 +395,7 @@ class Dataset(Configurable):
         """
         if os.path.isfile(pickle_filename):
             if os.path.getmtime(pickle_filename) > Dataset._get_newest_mtime(
-                self, data_filenames
+                    self, data_filenames
             ):  # self may be None
                 with open(pickle_filename, "rb") as f:
                     return pickle.load(f)
@@ -458,7 +466,7 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return self.load_triples(split)
 
     def entity_ids(
-        self, indexes: Optional[Union[int, Tensor]] = None
+            self, indexes: Optional[Union[int, Tensor]] = None
     ) -> Union[str, List[str], np.ndarray]:
         """Decode indexes to entity ids.
 
@@ -467,7 +475,7 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return self.map_indexes(indexes, "entity_ids")
 
     def relation_ids(
-        self, indexes: Optional[Union[int, Tensor]] = None
+            self, indexes: Optional[Union[int, Tensor]] = None
     ) -> Union[str, List[str], np.ndarray]:
         """Decode indexes to relation ids.
 
@@ -476,7 +484,7 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return self.map_indexes(indexes, "relation_ids")
 
     def entity_strings(
-        self, indexes: Optional[Union[int, Tensor]] = None
+            self, indexes: Optional[Union[int, Tensor]] = None
     ) -> Union[str, List[str], np.ndarray]:
         """Decode indexes to entity strings.
 
@@ -489,7 +497,7 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return self._map_indexes(indexes, map_)
 
     def relation_strings(
-        self, indexes: Optional[Union[int, Tensor]] = None
+            self, indexes: Optional[Union[int, Tensor]] = None
     ) -> Union[str, List[str], np.ndarray]:
         """Decode indexes to relation strings.
 
@@ -557,7 +565,7 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
             return names.reshape(shape)
 
     def map_indexes(
-        self, indexes: Optional[Union[int, Tensor]], key: str
+            self, indexes: Optional[Union[int, Tensor]], key: str
     ) -> Union[Any, List[Any], np.ndarray]:
         """Maps indexes to values using the specified map.
 
@@ -571,3 +579,21 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         """
         map_ = self.load_map(key, as_list=True)
         return Dataset._map_indexes(indexes, map_)
+
+    def load_literals(self):
+        if len(self._literals) == 0:
+            try:
+                self.ensure_available("literals")
+                filename = self.config.get(f"dataset.files.literals.filename")
+                # load literals
+                literals, _ = Dataset._load_map(filename, True, "\t")
+
+                self.config.log(f"Loaded {len(literals)} literals")
+
+                # map literals to vectors
+                # assign to intern literal variable
+            except:
+                self.config.log(f"Could not find literal dataset.")
+
+    def load_descriptions(self):
+        pass
