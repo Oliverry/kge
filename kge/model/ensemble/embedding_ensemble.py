@@ -4,7 +4,7 @@ import torch.nn.functional
 
 from kge import Config, Dataset
 from kge.model import Ensemble, ReciprocalRelationsModel
-from kge.model.ensemble.aggregation import AutoencoderReduction, PcaReduction, Concatenation, OneToN
+from kge.model.ensemble.aggregation import AutoencoderReduction, Concatenation, OneToN, PCA
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 
 
@@ -38,7 +38,7 @@ class EmbeddingEnsemble(Ensemble):
         if aggregation_option == "concat":
             self.aggregation = Concatenation(self.submodels, config, self.configuration_key)
         elif aggregation_option == "pca":
-            self.aggregation = PcaReduction(self.submodels, config, self.configuration_key)
+            self.aggregation = PCA(self.submodels, config, self.configuration_key)
         elif aggregation_option == "autoencoder":
             self.aggregation = AutoencoderReduction(self.submodels, config, self.configuration_key)
         elif aggregation_option == "oneton":

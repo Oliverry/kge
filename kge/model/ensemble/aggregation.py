@@ -7,7 +7,7 @@ from torch import nn, Tensor, optim
 from torch.utils.data import Dataset, DataLoader
 
 from kge import Configurable, Config
-from kge.model import KgeEmbedder
+from kge.model import KgeEmbedder, LookupEmbedder
 from kge.model.ensemble.aggregation_data import AggregationDataset, fetch_model_embeddings
 
 
@@ -29,20 +29,20 @@ class AggregationBase(nn.Module, Configurable):
         self.models = models
 
         # compute and set aggregated dimension
-        if self.config.get(parent_configuration_key + ".entities.agg_dim") < 0:
+        if config.get(parent_configuration_key + ".entities.agg_dim") < 0:
             entity_dim = config.get(parent_configuration_key + ".entities.source_dim")
             entity_reduction = 1.0
             if self.has_option("entity_reduction"):
                 entity_reduction = self.get_option("entity_reduction")
             entity_agg = round(entity_dim * entity_reduction)
-            self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
-        if self.config.get(parent_configuration_key + ".relations.agg_dim") < 0:
+            config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
+        if config.get(parent_configuration_key + ".relations.agg_dim") < 0:
             relation_dim = config.get(parent_configuration_key + ".relations.source_dim")
             relation_reduction = 1.0
             if self.has_option("relation_reduction"):
                 relation_reduction = self.get_option("relation_reduction")
             relation_agg = round(relation_dim * relation_reduction)
-            self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
+            config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
 
     def aggregate(self, target, indexes: Tensor = None):
         """
@@ -73,20 +73,18 @@ class Concatenation(AggregationBase):
         pass
 
 
-class PcaReduction(AggregationBase):
+class PCA(AggregationBase):
 
-    def __init__(self, models, config, parent_configuration_key):
+    def __init__(self, models, dataset, config, parent_configuration_key):
         AggregationBase.__init__(self, models, config, "pca", parent_configuration_key)
-        entity_source = config.get(parent_configuration_key + ".entities.source_dim")
-        relation_source = config.get(parent_configuration_key + ".relations.source_dim")
-        entity_dim = entity_source * self.get_option("entity_reduction")
-        relation_dim = relation_source * self.get_option("relation_reduction")
-        if entity_dim - int(entity_dim) > 0:
-            raise Exception("PCA reduction of entities not doable for given percentage.")
-        if relation_dim - int(relation_dim) > 0:
-            raise Exception("PCA reduction of relations not doable for given percentage.")
-        self.entity_pca = PCA(n_components=int(entity_dim))
-        self.relation_pca = PCA(n_components=int(relation_dim))
+
+        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_rrm = config.get(parent_configuration_key + ".num_rrm")
+        entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
+        relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
+
+        # self._entity_embedder = LookupEmbedder()
+        # self.relation_pca = PCA(n_components=relation_dim * (num_models + num_rrm))
 
     def aggregate(self, target, indexes: Tensor = None):
         t = torch.randn(2, 128)
@@ -95,6 +93,8 @@ class PcaReduction(AggregationBase):
         return res
 
     def train_aggregation(self, models):
+        # self.entity_embedder = PCA(n_components=entity_dim * num_models)
+        # self.relation_pca = PCA(n_components=relation_dim * (num_models + num_rrm))
         pass
 
 

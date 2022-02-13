@@ -3,6 +3,5 @@ kge_adapter:
     type: transe
     +++: +++
 
-
 finetuning:
-  num_layers: 3
+  num_layers: 1

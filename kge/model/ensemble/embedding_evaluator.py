@@ -39,12 +39,11 @@ class KgeAdapter(EmbeddingEvaluator):
         model_name = self.get_option("model.type")
         class_name = config.get(model_name + ".class_name")
         num_models = len(config.get(parent_configuration_key + ".submodels"))
-        num_rrm = config.get(parent_configuration_key + ".num_rrm")
 
         # if embedders are used, change embedding size to aggregated dimensions
         dim_options = {
             self.configuration_key+".model.entity_embedder.dim": self.single_entity_dim * num_models,
-            self.configuration_key+".model.relation_embedder.dim": self.single_relation_dim * (num_models + num_rrm)
+            self.configuration_key+".model.relation_embedder.dim": self.single_relation_dim * num_models
         }
         self.config.load_options(dim_options, create=True)
 
