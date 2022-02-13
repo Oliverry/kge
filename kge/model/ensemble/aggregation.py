@@ -7,14 +7,17 @@ from torch import nn, Tensor, optim
 from torch.utils.data import Dataset, DataLoader
 
 from kge import Configurable, Config
-from kge.model import KgeEmbedder, LookupEmbedder
-from kge.model.ensemble.aggregation_data import AggregationDataset, fetch_model_embeddings
+from kge.model import KgeEmbedder
+from kge.model.ensemble.aggregation_data import AggregationDataset, create_aggregation_dataloader
 
 
 # TODO change embedding fetching
+from kge.model.ensemble.model_manager import ModelManager
+
+
 class AggregationBase(nn.Module, Configurable):
 
-    def __init__(self, models, config: Config, configuration_key, parent_configuration_key):
+    def __init__(self, model_manager: ModelManager, config: Config, configuration_key, parent_configuration_key):
         """
         Initializes basic dim reduction variables.
         Updates the reduced dimensionality in embedding ensemble if entity_reduction and relation_reduction
@@ -26,7 +29,7 @@ class AggregationBase(nn.Module, Configurable):
         """
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
-        self.models = models
+        self.model_manager = model_manager
 
         # compute and set aggregated dimension
         if config.get(parent_configuration_key + ".entities.agg_dim") < 0:
@@ -54,37 +57,36 @@ class AggregationBase(nn.Module, Configurable):
         """
         raise NotImplementedError
 
-    def train_aggregation(self, models):
+    def train_aggregation(self):
         raise NotImplementedError
 
 
 class Concatenation(AggregationBase):
 
-    def __init__(self, models, config, parent_configuration_key):
-        AggregationBase.__init__(self, models, config, None, parent_configuration_key)
+    def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
+        AggregationBase.__init__(self, model_manager, config, None, parent_configuration_key)
 
     def aggregate(self, target, indexes: Tensor = None):
-        t = fetch_model_embeddings(self.models, target, indexes)
+        t = self.model_manager.fetch_model_embeddings(target, indexes)
         n = t.size()[0]
         res = t.view(n, -1)
         return res
 
-    def train_aggregation(self, models):
+    def train_aggregation(self):
         pass
 
 
-class PCA(AggregationBase):
+class PcaReduction(AggregationBase):
 
-    def __init__(self, models, dataset, config, parent_configuration_key):
-        AggregationBase.__init__(self, models, config, "pca", parent_configuration_key)
+    def __init__(self, model_manager:ModelManager, dataset, config, parent_configuration_key):
+        AggregationBase.__init__(self, model_manager, config, "pca", parent_configuration_key)
 
         num_models = len(config.get(parent_configuration_key + ".submodels"))
-        num_rrm = config.get(parent_configuration_key + ".num_rrm")
         entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
         relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
 
-        # self._entity_embedder = LookupEmbedder()
-        # self.relation_pca = PCA(n_components=relation_dim * (num_models + num_rrm))
+        self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), entity_dim * num_models)
+        self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), relation_dim * num_models)
 
     def aggregate(self, target, indexes: Tensor = None):
         t = torch.randn(2, 128)
@@ -92,7 +94,7 @@ class PCA(AggregationBase):
         res = self.entity_pca.transform(t)
         return res
 
-    def train_aggregation(self, models):
+    def train_aggregation(self):
         # self.entity_embedder = PCA(n_components=entity_dim * num_models)
         # self.relation_pca = PCA(n_components=relation_dim * (num_models + num_rrm))
         pass
@@ -100,8 +102,8 @@ class PCA(AggregationBase):
 
 class AutoencoderReduction(AggregationBase):
 
-    def __init__(self, models, config: Config, parent_configuration_key):
-        AggregationBase.__init__(self, models, config, "autoencoder_reduction", parent_configuration_key)
+    def __init__(self, model_manager: ModelManager, config: Config, parent_configuration_key):
+        AggregationBase.__init__(self, model_manager, config, "autoencoder_reduction", parent_configuration_key)
 
         if config.get("job.type") == "train":
             self.epochs = self.get_option("epochs")
@@ -112,7 +114,7 @@ class AutoencoderReduction(AggregationBase):
         self.relation_model = Autoencoder(config, parent_configuration_key, "relations")
 
     def aggregate(self, target, indexes: Tensor = None):
-        embeds = fetch_model_embeddings(self.models, target, indexes)
+        embeds = self.model_manager.fetch_model_embeddings(target, indexes)
         n = embeds.size()[0]
         embeds = embeds.view(n, -1)  # transform tensor to autoencoder format
         if target == "s" or target == "o":
@@ -121,13 +123,10 @@ class AutoencoderReduction(AggregationBase):
             embeds = self.relation_model.reduce(embeds)
         return embeds
 
-    def train_aggregation(self, models):
+    def train_aggregation(self):
         # create dataloader
-        # TODO change to one embedder for s and o
-        s_embs = fetch_model_embeddings(self.models, "s")
-        p_embs = fetch_model_embeddings(self.models, "p")
-        entity_dataloader = DataLoader(AggregationDataset(s_embs), batch_size=30, shuffle=True)
-        relation_dataloader = DataLoader(AggregationDataset(p_embs), batch_size=30, shuffle=True)
+        entity_dataloader = create_aggregation_dataloader(self.model_manager, "entities", 50, True)
+        relation_dataloader = create_aggregation_dataloader(self.model_manager, "relations", 50, True)
 
         print("Training entity autoencoder")
         self.train_model(entity_dataloader, self.entity_model)
@@ -223,8 +222,9 @@ class Autoencoder(nn.Module, Configurable):
 
 class OneToN(AggregationBase):
 
-    def __init__(self, models, dataset: Dataset, config: Config, parent_configuration_key, init_for_load_only=False):
-        AggregationBase.__init__(self, models, config, "oneton", parent_configuration_key)
+    def __init__(self, model_manager: ModelManager, dataset: Dataset, config: Config,
+                 parent_configuration_key, init_for_load_only=False):
+        AggregationBase.__init__(self, model_manager, config, "oneton", parent_configuration_key)
 
         # modify embedder config
         entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
@@ -275,12 +275,10 @@ class OneToN(AggregationBase):
             else:
                 return self._entity_embedder.embed(indexes)
 
-    def train_aggregation(self, models):
+    def train_aggregation(self):
         # create dataloader
-        s_embs = fetch_model_embeddings(self.models, "s")
-        p_embs = fetch_model_embeddings(self.models, "p")
-        entity_dataloader = DataLoader(AggregationDataset(s_embs), batch_size=10, shuffle=True)
-        relation_dataloader = DataLoader(AggregationDataset(p_embs), batch_size=10, shuffle=True)
+        entity_dataloader = create_aggregation_dataloader(self.model_manager, "entities", 50, True)
+        relation_dataloader = create_aggregation_dataloader(self.model_manager, "relations", 50, True)
 
         print("Training entity autoencoder")
         self.train_model(entity_dataloader, self.entity_nets, self._entity_embedder)

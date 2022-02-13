@@ -4,7 +4,7 @@ import torch.nn.functional
 
 from kge import Config, Dataset
 from kge.model import Ensemble, ReciprocalRelationsModel
-from kge.model.ensemble.aggregation import AutoencoderReduction, Concatenation, OneToN, PCA
+from kge.model.ensemble.aggregation import AutoencoderReduction, Concatenation, OneToN, PcaReduction
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 
 
@@ -27,7 +27,7 @@ class EmbeddingEnsemble(Ensemble):
         self.normalize_p = self.get_option("normalize_p")
         # check number of reciprocal relations models
         num_rrm = 0
-        for model in self.submodels:
+        for model in self.model_manager.models:
             if isinstance(model, ReciprocalRelationsModel):
                 num_rrm += 1
         self.set_option("num_rrm", num_rrm)
@@ -36,13 +36,13 @@ class EmbeddingEnsemble(Ensemble):
         aggregation_option = self.get_option("aggregation")
         evaluator_option = self.get_option("evaluator")
         if aggregation_option == "concat":
-            self.aggregation = Concatenation(self.submodels, config, self.configuration_key)
+            self.aggregation = Concatenation(self.model_manager, config, self.configuration_key)
         elif aggregation_option == "pca":
-            self.aggregation = PCA(self.submodels, config, self.configuration_key)
+            self.aggregation = PcaReduction(self.model_manager, config, self.configuration_key)
         elif aggregation_option == "autoencoder":
-            self.aggregation = AutoencoderReduction(self.submodels, config, self.configuration_key)
+            self.aggregation = AutoencoderReduction(self.model_manager, config, self.configuration_key)
         elif aggregation_option == "oneton":
-            self.aggregation = OneToN(self.submodels, dataset, config, self.configuration_key)
+            self.aggregation = OneToN(self.model_manager, dataset, config, self.configuration_key)
         else:
             raise Exception("Unknown dimensionality reduction: " + aggregation_option)
 
@@ -56,7 +56,7 @@ class EmbeddingEnsemble(Ensemble):
 
         # Start training of dimensionality reduction method
         if config.get("job.type") == "train":
-            self.aggregation.train_aggregation(self.submodels)
+            self.aggregation.train_aggregation()
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         s_emb = self.aggregation.aggregate("s", s)
