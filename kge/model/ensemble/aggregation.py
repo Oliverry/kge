@@ -248,8 +248,9 @@ class OneToN(AggregationBase):
         # modify embedder config
         entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
         relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
-        self.set_option("entity_embedder.dim", entity_dim)
-        self.set_option("relation_embedder.dim", relation_dim)
+        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        self.set_option("entity_embedder.dim", entity_dim * num_models)
+        self.set_option("relation_embedder.dim", relation_dim * num_models)
 
         # create embedders for metaembeddings
         # TODO if init_for_load_only, load embeddings?
@@ -283,16 +284,18 @@ class OneToN(AggregationBase):
             self.epochs = self.get_option("epochs")
 
     def aggregate(self, target, indexes: Tensor = None):
-        if target == "p":
+        if target == "s" or target == "o":
+            if indexes is None:
+                return self._entity_embedder.embed_all()
+            else:
+                return self._entity_embedder.embed(indexes)
+        elif target == "p":
             if indexes is None:
                 return self._relation_embedder.embed_all()
             else:
                 return self._relation_embedder.embed(indexes)
         else:
-            if indexes is None:
-                return self._entity_embedder.embed_all()
-            else:
-                return self._entity_embedder.embed(indexes)
+            raise ValueError("Unknown target embedding.")
 
     def train_aggregation(self):
         # create dataloader
@@ -308,7 +311,7 @@ class OneToN(AggregationBase):
     def train_model(self, dataloader, models, embedder):
         # Define the loss
         loss_func = nn.MSELoss()
-        optimizer = optim.SGD(models.parameters(), lr=0.003)
+        optimizer = optim.SGD(models.parameters(), lr=0.1)
         for e in range(self.epochs):
             running_loss = 0
             for indexes, data in dataloader:
@@ -332,9 +335,10 @@ class OneToNet(nn.Module, Configurable):
     def __init__(self, config: Config, parent_configuration_key, embedding_configuration_key):
         super(OneToNet, self).__init__()
         Configurable.__init__(self, config, "onetonet")
+        num_models = len(config.get(parent_configuration_key + ".submodels"))
         source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
         reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
-        self.layer = nn.Linear(reduced_dim, source_dim, bias=False)
+        self.layer = nn.Linear(reduced_dim * num_models, source_dim, bias=False)
 
     def forward(self, x):
         x = self.layer(x)

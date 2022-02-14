@@ -77,7 +77,6 @@ class FineTuning(EmbeddingEvaluator):
     """
 
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
-        # TODO also has numbering error
         EmbeddingEvaluator.__init__(self, config, "finetuning", parent_configuration_key)
 
         num_models = len(config.get(parent_configuration_key + ".submodels"))
@@ -85,18 +84,23 @@ class FineTuning(EmbeddingEvaluator):
         relation_dim = self.single_relation_dim * num_models
         num_layers = self.get_option("num_layers")
 
+        i = 0
         entity_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
-            entity_nn_dict["linear" + str(idx)] = nn.Linear(entity_dim, entity_dim)
+            entity_nn_dict[str(i) + "-linear"] = nn.Linear(entity_dim, entity_dim)
+            i += 1
             if idx + 1 < num_layers:
-                entity_nn_dict["relu" + str(idx)] = nn.ReLU()
+                entity_nn_dict[str(i) + "-relu"] = nn.ReLU()
+                i += 1
         self.entity_finetuner = torch.nn.Sequential(entity_nn_dict)
 
         relation_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
-            relation_nn_dict["linear" + str(idx)] = nn.Linear(relation_dim, relation_dim)
+            relation_nn_dict[str(i) + "-linear"] = nn.Linear(relation_dim, relation_dim)
+            i += 1
             if idx + 1 < num_layers:
-                relation_nn_dict["relu" + str(idx)] = nn.ReLU()
+                relation_nn_dict[str(i) + "-relu"] = nn.ReLU()
+                i += 1
         self.relation_finetuner = torch.nn.Sequential(relation_nn_dict)
 
         self.adapter = KgeAdapter(dataset, config, parent_configuration_key)
