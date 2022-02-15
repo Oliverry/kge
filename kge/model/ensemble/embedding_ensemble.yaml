@@ -2,7 +2,7 @@ import: [aggregation, embedding_evaluator]
 
 embedding_ensemble:
   class_name: EmbeddingEnsemble
-  submodels: [transe, complex]
+  base_models: [transe, complex]
   aggregation: autoencoder
   evaluator: kge_adapter
   num_rrm: -1 # number of reciprocal relations models in submodels, gets computed

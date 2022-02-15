@@ -188,7 +188,7 @@ class Autoencoder(nn.Module, Configurable):
         Configurable.__init__(self, config, "autoencoder")
 
         # get basic model configuration
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_models = len(config.get(parent_configuration_key + ".base_models"))
         source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
         reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
         num_rrm = 0
@@ -248,13 +248,13 @@ class OneToN(AggregationBase):
         # modify embedder config
         entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
         relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_models = len(config.get(parent_configuration_key + ".base_models"))
         self.set_option("entity_embedder.dim", entity_dim * num_models)
         self.set_option("relation_embedder.dim", relation_dim * num_models)
 
         # create embedders for metaembeddings
         # TODO if init_for_load_only, load embeddings?
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_models = len(config.get(parent_configuration_key + ".base_models"))
         self._entity_embedder = KgeEmbedder.create(
             config,
             dataset,
@@ -335,7 +335,7 @@ class OneToNet(nn.Module, Configurable):
     def __init__(self, config: Config, parent_configuration_key, embedding_configuration_key):
         super(OneToNet, self).__init__()
         Configurable.__init__(self, config, "onetonet")
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_models = len(config.get(parent_configuration_key + ".base_models"))
         source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
         reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
         self.layer = nn.Linear(reduced_dim * num_models, source_dim, bias=False)

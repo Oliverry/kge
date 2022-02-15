@@ -15,11 +15,12 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
     :return: Tensor of embeddings with shape n x 1 x E
     """
     # check if certain type of model is used
+    is_rrm = contains_model(model, ReciprocalRelationsModel)
     is_rotate = contains_model(model, RotatE)
     is_conve = contains_model(model, ConvE)
 
-    # check if reciprocal relations model is used and split relation embedding
-    if target == "p" and isinstance(model, ReciprocalRelationsModel):
+    if target == "p" and is_rrm:
+        # check if reciprocal relations model is used and split relation embedding
         if indexes is None:
             out_rrm = model.get_p_embedder().embed_all()
             half_t = int(out_rrm.size()[0]/2)
@@ -61,12 +62,13 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
         re = torch.cos(out)
         img = torch.sin(out)
         out = torch.cat((re, img), dim=2)
+
     return out.detach()
 
 
-def contains_model(model, class_name):
-    contained = (isinstance(model, ReciprocalRelationsModel) and isinstance(model.base_model(), class_name))
-    return contained or isinstance(model, class_name)
+def contains_model(model: KgeModel, model_type):
+    contained = (isinstance(model, ReciprocalRelationsModel) and isinstance(model.base_model(), model_type))
+    return contained or isinstance(model, model_type)
 
 
 class ModelManager:
@@ -74,11 +76,55 @@ class ModelManager:
     def __init__(self, models: List[KgeModel]):
         self.models = models
 
+    def num_models(self):
+        return len(self.models)
+
+    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
+        scores_list = []
+        for model in self.models:
+            model_scores = model.score_spo(s, p, o, direction).detach()
+            scores_list.append(model_scores)
+        scores = torch.stack(scores_list, dim=1)
+        return scores
+
+    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
+        scores_list = []
+        for model in self.models:
+            model_scores = model.score_sp(s, p, o).detach()
+            scores_list.append(model_scores)
+        scores = torch.stack(scores_list, dim=2)
+        return scores
+
+    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
+        scores_list = []
+        for model in self.models:
+            model_scores = model.score_po(p, o, s).detach()
+            scores_list.append(model_scores)
+        scores = torch.stack(scores_list, dim=2)
+        return scores
+
+    def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
+        scores_list = []
+        for model in self.models:
+            model_scores = model.score_so(s, o, p).detach()
+            scores_list.append(model_scores)
+        scores = torch.stack(scores_list, dim=2)
+        return scores
+
+    def score_sp_po(
+            self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
+    ) -> Tensor:
+        scores_list = []
+        for model in self.models:
+            model_scores = model.score_sp_po(s, p, o, entity_subset).detach()
+            scores_list.append(model_scores)
+        scores = torch.stack(scores_list, dim=2)
+        return scores
+
     def fetch_model_embeddings(self, target, indexes: Tensor = None) -> Tensor:
         """
         Return tensor of size n times m times dim, where n is the length of the index tensor,
         m is the number of models and dim is the embedding length.
-        :param models:
         :param target:
         :param indexes:
         :return:
@@ -89,7 +135,3 @@ class ModelManager:
             emb_list.append(model_emb)
         embeds = torch.cat(emb_list, dim=1)
         return embeds
-
-
-
-

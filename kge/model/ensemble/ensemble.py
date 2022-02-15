@@ -16,7 +16,7 @@ class Ensemble(KgeModel):
     """
     Implementation of the Ensemble KGE model.
     Creates no embedders.
-    Loads all submodels necessary for the ensemble.
+    Loads base model list used for the ensemble.
     """
 
     def __init__(
@@ -34,13 +34,17 @@ class Ensemble(KgeModel):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only
         )
-        self.submodels = []
-        for model_name in self.get_option("submodels"):
+        base_models_names = self.get_option("base_models")
+        base_models = []
+        for model_name in base_models_names:
             model = self.load_pretrained_model(model_name)
+            # check if all models use a single embedder for subjects and objects
             if not model.get_s_embedder() is model.get_o_embedder():
-                raise Exception("Ensemble only support KGE models with the same s and o embedder. Exception: "+model_name)
-            self.submodels.append(model)
-        self.model_manager = ModelManager(self.submodels)
+                raise Exception(
+                    "Ensemble only support KGE models with the same s and o embedder. Exception: " + model_name
+                )
+            base_models.append(model)
+        self.model_manager = ModelManager(base_models)
 
     def load_pretrained_model(self, model_name) -> KgeModel:
         """

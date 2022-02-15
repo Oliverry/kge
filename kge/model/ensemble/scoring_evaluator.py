@@ -33,7 +33,7 @@ class PlattScalingEvaluator(ScoringEvaluator):
 
     def __init__(self, config: Config, parent_configuration_key):
         super().__init__(config, None)
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_models = len(config.get(parent_configuration_key + ".base_models"))
         self.scalers = nn.ModuleList([PlattScaler() for _ in range(0, num_models)])
 
     def forward(self, scores: Tensor) -> Tensor:

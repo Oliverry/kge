@@ -1,5 +1,5 @@
 scoring_ensemble:
   class_name: ScoringEnsemble
-  submodels: [transe,complex]
+  base_models: [transe,complex]
   evaluator: platt
 

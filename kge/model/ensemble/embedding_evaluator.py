@@ -38,7 +38,7 @@ class KgeAdapter(EmbeddingEvaluator):
 
         model_name = self.get_option("model.type")
         class_name = config.get(model_name + ".class_name")
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_models = len(config.get(parent_configuration_key + ".base_models"))
 
         # if embedders are used, change embedding size to aggregated dimensions
         dim_options = {
@@ -79,7 +79,7 @@ class FineTuning(EmbeddingEvaluator):
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
         EmbeddingEvaluator.__init__(self, config, "finetuning", parent_configuration_key)
 
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_models = len(config.get(parent_configuration_key + ".base_models"))
         entity_dim = self.single_entity_dim * num_models
         relation_dim = self.single_relation_dim * num_models
         num_layers = self.get_option("num_layers")
