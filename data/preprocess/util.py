@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Union, Iterable
 import yaml
 import os
 
+
 ### DEFAULT PREPROCESS UTILS ##########################################################
 
 
@@ -114,9 +115,9 @@ class FilteredSplit(Split):
             self.raw_split.field_map["O"],
         )
         if (
-            triple[S] in self.filter_with.entities
-            and triple[O] in self.filter_with.entities
-            and triple[P] in self.filter_with.relations
+                triple[S] in self.filter_with.entities
+                and triple[O] in self.filter_with.entities
+                and triple[P] in self.filter_with.relations
         ):
             super().process_triple(triple, entities, relations, **kwargs)
 
@@ -143,6 +144,23 @@ class SampledSplit(Split):
 
     def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
         if kwargs["n"] in self.sample:
+            super().process_triple(triple, entities, relations, **kwargs)
+
+
+@dataclass
+class SubSplit(Split):
+    """
+    A split with fixed indexes.
+    """
+
+    begin_index: int = None
+    end_index: int = None
+
+    def prepare(self, folder: str):
+        super().prepare(folder)
+
+    def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
+        if self.begin_index <= kwargs["n"] < self.end_index:
             super().process_triple(triple, entities, relations, **kwargs)
 
 
@@ -294,7 +312,7 @@ def default_parser():
 
 
 def create_raw_dataset(
-    train_raw, valid_raw, test_raw, args, create_splits=True
+        train_raw, valid_raw, test_raw, args, create_splits=True
 ) -> RawDataset:
     # read data and collect entity and relation maps
     raw_dataset: RawDataset = analyze_raw_splits(
@@ -304,6 +322,12 @@ def create_raw_dataset(
     if create_splits:
         # register all splits to be derived from the raw splits
         # arbitrary options may be added to the raw_dataset config in the process
+
+        # split train into train_base and train_ensemble
+        split_ratio = 0.8
+        train_split = round(len(train_raw.data) * split_ratio)
+        valid_split = round(len(valid_raw.data) * split_ratio)
+
         train = Split(
             raw_split=train_raw,
             key="train",
@@ -319,14 +343,35 @@ def create_raw_dataset(
                 "split_type": "train",
             },
         )
-        train_raw.splits.extend([train, train_sample])
+        train_base = SubSplit(
+            raw_split=train_raw,
+            key="train_base",
+            begin_index=0,
+            end_index=train_split,
+            options={
+                "type": "triples",
+                "filename": "train_base.del",
+                "split_type": "train",
+            },
+        )
+        train_ensemble = SubSplit(
+            raw_split=train_raw,
+            key="train_ensemble",
+            begin_index=train_split,
+            end_index=len(train_raw.data)+1,
+            options={
+                "type": "triple",
+                "filename": "train_ensemble.del",
+                "split_type": "train"
+            }
+        )
+        train_raw.splits.extend([train, train_sample, train_base, train_ensemble])
 
         valid = Split(
             raw_split=valid_raw,
             key="valid",
             options={"type": "triples", "filename": "valid.del", "split_type": "valid"},
         )
-
         valid_wo_unseen = FilteredSplit(
             raw_split=valid_raw,
             key="valid_without_unseen",
@@ -337,7 +382,29 @@ def create_raw_dataset(
                 "split_type": "valid",
             },
         )
-        valid_raw.splits.extend([valid, valid_wo_unseen])
+        valid_base = SubSplit(
+            raw_split=valid_raw,
+            key="valid_base",
+            begin_index=0,
+            end_index=valid_split,
+            options={
+                "type": "triples",
+                "filename": "valid_base.del",
+                "split_type": "valid",
+            },
+        )
+        valid_ensemble = SubSplit(
+            raw_split=valid_raw,
+            key="valid_ensemble",
+            begin_index=valid_split,
+            end_index=len(valid_raw.data)+1,
+            options={
+                "type": "triple",
+                "filename": "valid_ensemble.del",
+                "split_type": "valid"
+            }
+        )
+        valid_raw.splits.extend([valid, valid_wo_unseen, valid_base, valid_ensemble])
 
         test = Split(
             raw_split=test_raw,
