@@ -66,9 +66,6 @@ class Dataset(Configurable):
         #: literal vector for each entity
         self._literals: Dict[str, Any] = {}
 
-        #: description text for each entity
-        self._description: Dict[str, Any] = {}
-
         #: functions that compute and add indexes as needed; arguments are dataset and
         #: key. Index functions are expected to not recompute an index that is already
         #: present. Indexed by key (same key as in self._indexes)
@@ -120,9 +117,11 @@ class Dataset(Configurable):
             dataset.entity_ids()
             dataset.relation_ids()
             for split in ["train", "valid", "test"]:
+                source = config.get("dataset.files."+split+".source")
+                if source != split:
+                    config.options["dataset"]["files"][split] = config.options["dataset"]["files"][source]
                 dataset.split(split)
             # dataset.load_literals()
-            # dataset.load_descriptions()
         return dataset
 
     @staticmethod

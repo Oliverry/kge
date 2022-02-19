@@ -75,12 +75,15 @@ dataset:
     #
     # Indexes are assumed to be dense throughout.
     train:
+      source: train
       filename: train.del
       type: triples
     valid:
+      source: valid
       filename: valid.del
       type: triples
     test:
+      source: test
       filename: test.del
       type: triples
 
