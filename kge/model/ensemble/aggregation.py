@@ -191,10 +191,7 @@ class Autoencoder(nn.Module, Configurable):
         num_models = len(config.get(parent_configuration_key + ".base_models"))
         source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
         reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
-        num_rrm = 0
-        if embedding_configuration_key == "relations":
-            num_rrm = config.get(parent_configuration_key + ".num_rrm")
-        self.dim_in = (num_models + num_rrm) * source_dim
+        self.dim_in = num_models * source_dim
         self.dim_out = num_models * reduced_dim
         self.num_layers = self.get_option("num_layers")
         self.dropout = self.get_option("dropout")

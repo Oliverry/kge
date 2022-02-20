@@ -29,10 +29,7 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
         else:
             out_one = model.get_p_embedder().embed(indexes)
             out_two = model.get_p_embedder().embed(indexes + model.dataset.num_relations())
-        n = out_one.size()[0]
-        out_one = out_one.view(n, 1, -1)
-        out_two = out_two.view(n, 1, -1)
-        out = torch.cat((out_one, out_two), dim=1)
+        out = 0.5 * (out_one + out_two)
     else:
         # normal embedding fetching
         if target == "s":
@@ -48,8 +45,10 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
             out = embedder.embed_all()
         else:
             out = embedder.embed(indexes)
-        n = out.size()[0]
-        out = out.view(n, 1, -1)
+
+    # reshape matrix
+    n = out.size()[0]
+    out = out.view(n, 1, -1)
 
     # check if conve model and remove bias term hack
     if is_conve:

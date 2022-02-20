@@ -25,12 +25,6 @@ class EmbeddingEnsemble(Ensemble):
         )
 
         self.normalize_p = self.get_option("normalize_p")
-        # check number of reciprocal relations models
-        num_rrm = 0
-        for model in self.model_manager.models:
-            if isinstance(model, ReciprocalRelationsModel):
-                num_rrm += 1
-        self.set_option("num_rrm", num_rrm)
 
         # Lookup and initiate dimensionality reduction method
         aggregation_option = self.get_option("aggregation")

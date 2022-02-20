@@ -5,7 +5,6 @@ embedding_ensemble:
   base_models: [transe, complex]
   aggregation: autoencoder
   evaluator: kge_adapter
-  num_rrm: -1 # number of reciprocal relations models in submodels, gets computed
   normalize_p: 2.0
   entities:
     source_dim: 128
