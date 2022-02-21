@@ -188,14 +188,14 @@ class AutoencoderReduction(AggregationBase):
 
 
 class Autoencoder(nn.Module, Configurable):
-    def __init__(self, config: Config, parent_configuration_key, embedding_configuration_key):
+    def __init__(self, config: Config, parent_configuration_key, embedding_key):
         super(Autoencoder, self).__init__()
         Configurable.__init__(self, config, "autoencoder")
 
         # get basic model configuration
         num_models = len(config.get(parent_configuration_key + ".base_models"))
-        source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
-        reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
+        source_dim = config.get(parent_configuration_key + "." + embedding_key + ".source_dim")
+        reduced_dim = config.get(parent_configuration_key + "." + embedding_key + ".agg_dim")
         self.dim_in = num_models * source_dim
         self.dim_out = num_models * reduced_dim
         self.num_layers = self.get_option("num_layers")
@@ -334,12 +334,12 @@ class OneToN(AggregationBase):
 
 class OneToNet(nn.Module, Configurable):
 
-    def __init__(self, config: Config, parent_configuration_key, embedding_configuration_key):
+    def __init__(self, config: Config, parent_configuration_key, embedding_key):
         super(OneToNet, self).__init__()
         Configurable.__init__(self, config, "onetonet")
         num_models = len(config.get(parent_configuration_key + ".base_models"))
-        source_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".source_dim")
-        reduced_dim = config.get(parent_configuration_key + "." + embedding_configuration_key + ".agg_dim")
+        source_dim = config.get(parent_configuration_key + "." + embedding_key + ".source_dim")
+        reduced_dim = config.get(parent_configuration_key + "." + embedding_key + ".agg_dim")
         self.layer = nn.Linear(reduced_dim * num_models, source_dim, bias=False)
 
     def forward(self, x):
