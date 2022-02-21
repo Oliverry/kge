@@ -3,13 +3,13 @@ from collections import OrderedDict
 
 import torch
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 from torch import nn, Tensor, optim
 from torch.utils.data import Dataset, DataLoader
 
 from kge import Configurable, Config
 from kge.model import KgeEmbedder
 from kge.model.ensemble.aggregation_data import AggregationDataset, create_aggregation_dataloader
-
 
 # TODO change embedding fetching
 from kge.model.ensemble.model_manager import ModelManager
@@ -78,11 +78,10 @@ class Concatenation(AggregationBase):
 
 class PcaReduction(AggregationBase):
 
-    # TODO use torch.long
     def __init__(self, model_manager: ModelManager, dataset, config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "pca", parent_configuration_key)
 
-        num_models = len(config.get(parent_configuration_key + ".submodels"))
+        num_models = len(config.get(parent_configuration_key + ".base_models"))
         self.entity_dim = config.get(parent_configuration_key + ".entities.agg_dim") * num_models
         self.relation_dim = config.get(parent_configuration_key + ".relations.agg_dim") * num_models
 
@@ -91,9 +90,11 @@ class PcaReduction(AggregationBase):
 
     def aggregate(self, target, indexes: Tensor = None):
         if target == "s" or target == "o":
-            return self._entity_embedder(indexes)
+            out = self._entity_embedder(indexes.long())
+            return out
         elif target == "p":
-            return self._relation_embedder(indexes)
+            out = self._relation_embedder(indexes.long())
+            return out
         else:
             raise ValueError("Unknown target embedding.")
 
@@ -110,11 +111,15 @@ class PcaReduction(AggregationBase):
         entity_embeds = entity_embeds.view(n, -1)
         relation_embeds = relation_embeds.view(m, -1)
 
-        # prior normalization
+        # prior standardization
+        entity_embeds = StandardScaler().fit_transform(entity_embeds)
+        relation_embeds = StandardScaler().fit_transform(relation_embeds)
 
-        entity_embeds = entity_pca.fit_transform(entity_embeds)  # maybe change to numpy
+        # apply pca
+        entity_embeds = entity_pca.fit_transform(entity_embeds)
         relation_embeds = relation_pca.fit_transform(relation_embeds)
 
+        # store embeddings
         self._entity_embedder = nn.Embedding.from_pretrained(torch.tensor(entity_embeds, dtype=torch.float))
         self._relation_embedder = nn.Embedding.from_pretrained(torch.tensor(relation_embeds, dtype=torch.float))
 
