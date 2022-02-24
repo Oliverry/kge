@@ -17,7 +17,6 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
     # check if certain type of model is used
     is_rrm = contains_model(model, ReciprocalRelationsModel)
     is_rotate = contains_model(model, RotatE)
-    is_conve = contains_model(model, ConvE)
 
     if target == "p" and is_rrm:
         # check if reciprocal relations model is used and split relation embedding
@@ -46,21 +45,11 @@ def fetch_embedding(model: KgeModel, target, indexes: Tensor = None) -> Tensor:
         else:
             out = embedder.embed(indexes)
 
-    # reshape matrix
-    n = out.size()[0]
-    out = out.view(n, 1, -1)
-
-    # check if conve model and remove bias term hack
-    if is_conve:
-        out_sz = out.size()
-        emb_dim = out_sz[len(out_sz) - 1]
-        out = out[..., :emb_dim - 1]
-
     # check if rotate model is used and convert relation embedding
     if target == "p" and is_rotate:
         re = torch.cos(out)
         img = torch.sin(out)
-        out = torch.cat((re, img), dim=2)
+        out = torch.cat((re, img), dim=1)
 
     return out.detach()
 
@@ -75,8 +64,24 @@ class ModelManager:
     def __init__(self, models: List[KgeModel]):
         self.models = models
 
+        # lookup model specific entity and relation sizes
+        self.dims = {}
+        for idx, model in enumerate(self.models):
+            entity_emb = fetch_embedding(model, "s", torch.Tensor(0))
+            relation_emb = fetch_embedding(model, "p", torch.Tensor(0))
+            entity_dim = entity_emb.size()[1]
+            relation_dim = relation_emb.size()[1]
+            self.dims[idx] = (entity_dim, relation_dim)
+
     def num_models(self):
         return len(self.models)
+
+    def model_embed_dims(self):
+        """
+        Return a dictionary with the index of a model as key and corresponding value as (entity_dim, relation_dim).
+        :return:
+        """
+        return self.dims
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         scores_list = []
@@ -128,9 +133,8 @@ class ModelManager:
         :param indexes:
         :return:
         """
-        emb_list = []
-        for model in self.models:
+        embeds = {}
+        for idx, model in enumerate(self.models):
             model_emb = fetch_embedding(model, target, indexes)
-            emb_list.append(model_emb)
-        embeds = torch.cat(emb_list, dim=1)
+            embeds[idx] = model_emb
         return embeds

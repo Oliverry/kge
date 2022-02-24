@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from torch import nn, Tensor, optim
 from torch.utils.data import Dataset, DataLoader
+import torch.nn.functional as F
 
 from kge import Configurable, Config
 from kge.model import KgeEmbedder
@@ -13,6 +14,36 @@ from kge.model.ensemble.aggregation_data import AggregationDataset, create_aggre
 
 # TODO change embedding fetching
 from kge.model.ensemble.model_manager import ModelManager
+
+
+def concat_embeds(embeds):
+    embeds_list = []
+    for model_idx in embeds.keys():
+        embeds_list.append(embeds[model_idx])
+    out = torch.cat(embeds_list, 1)
+    return out
+
+
+def pad_embeds(embeds, padding_length):
+    padded_embeds = {}
+    for model_idx in embeds:
+        model_embeds = embeds[model_idx]
+        last_dim = model_embeds.size()[1]
+        padded_embed = F.pad(input=model_embeds, pad=(0, padding_length - last_dim), mode='constant', value=0)
+        padded_embeds[model_idx] = padded_embed
+    return padded_embeds
+
+
+def avg_embeds(embeds):
+    embed_list = []
+    for model_idx in embeds:
+        embed = embeds[model_idx]
+        n = embed.size()[0]
+        embed = embed.view(n, 1, -1)
+        embed_list.append(embed)
+    out = torch.cat(embed_list, 1)
+    out = torch.mean(out, 1)
+    return out
 
 
 class AggregationBase(nn.Module, Configurable):
@@ -30,22 +61,36 @@ class AggregationBase(nn.Module, Configurable):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
         self.model_manager = model_manager
+        self.single_agg_dims = {}
+        self.set_agg_dims(parent_configuration_key)
 
-        # compute and set aggregated dimension
-        if config.get(parent_configuration_key + ".entities.agg_dim") < 0:
-            entity_dim = config.get(parent_configuration_key + ".entities.source_dim")
-            entity_reduction = 1.0
-            if self.has_option("entity_reduction"):
-                entity_reduction = self.get_option("entity_reduction")
-            entity_agg = round(entity_dim * entity_reduction)
-            config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
-        if config.get(parent_configuration_key + ".relations.agg_dim") < 0:
-            relation_dim = config.get(parent_configuration_key + ".relations.source_dim")
-            relation_reduction = 1.0
-            if self.has_option("relation_reduction"):
-                relation_reduction = self.get_option("relation_reduction")
-            relation_agg = round(relation_dim * relation_reduction)
-            config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
+    def set_agg_dims(self, parent_configuration_key):
+        embed_dims = self.model_manager.model_embed_dims()
+
+        # get entity and relation reduction by percentage
+        entity_reduction = 1.0
+        relation_reduction = 1.0
+        if self.has_option("entity_reduction"):
+            entity_reduction = self.get_option("entity_reduction")
+        if self.has_option("relation_reduction"):
+            relation_reduction = self.get_option("relation_reduction")
+
+        # compute single agg dims
+        for model_idx in embed_dims:
+            entity_agg_dim = round(embed_dims[model_idx][0] * entity_reduction)
+            relation_agg_dim = round(embed_dims[model_idx][1] * relation_reduction)
+            self.single_agg_dims[model_idx] = (entity_agg_dim, relation_agg_dim)
+
+        # compute summarized agg dim
+        entity_agg = 0
+        relation_agg = 0
+        for model_agg_dim in self.single_agg_dims:
+            entity_agg += self.single_agg_dims[model_agg_dim][0]
+            relation_agg += self.single_agg_dims[model_agg_dim][0]
+
+        # write agg dims for evaluator in embedding ensemble config
+        self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
+        self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
 
     def aggregate(self, target, indexes: Tensor = None):
         """
@@ -68,9 +113,47 @@ class Concatenation(AggregationBase):
 
     def aggregate(self, target, indexes: Tensor = None):
         t = self.model_manager.fetch_model_embeddings(target, indexes)
-        n = t.size()[0]
-        res = t.view(n, -1)
+        res = concat_embeds(t)
         return res
+
+    def train_aggregation(self):
+        pass
+
+
+class MeanReduction(AggregationBase):
+
+    def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
+        AggregationBase.__init__(self, model_manager, config, None, parent_configuration_key)
+
+    def set_agg_dims(self, parent_configuration_key):
+        embed_dims = self.model_manager.model_embed_dims()
+
+        # find longest entity and relation embeddings
+        max_entity_dim = 0
+        max_relation_dim = 0
+        for model_idx in embed_dims:
+            if embed_dims[model_idx][0] > max_entity_dim:
+                max_entity_dim = embed_dims[model_idx][0]
+            if embed_dims[model_idx][1] > max_relation_dim:
+                max_relation_dim = embed_dims[model_idx][1]
+
+        # set agg embedding dims
+        self.single_agg_dims[0] = (max_entity_dim, max_relation_dim)
+
+        # write agg dims for evaluator in embedding ensemble config
+        self.config.set(parent_configuration_key + ".entities.agg_dim", max_entity_dim)
+        self.config.set(parent_configuration_key + ".relations.agg_dim", max_relation_dim)
+
+    def aggregate(self, target, indexes: Tensor = None):
+        t = self.model_manager.fetch_model_embeddings(target, indexes)
+        if target == "s" or target == "o":
+            t = pad_embeds(t, self.single_agg_dims[0][0])
+        elif target == "p":
+            t = pad_embeds(t, self.single_agg_dims[0][1])
+        else:
+            raise ValueError("Unknown target embedding.")
+        t = avg_embeds(t)
+        return t
 
     def train_aggregation(self):
         pass
@@ -81,9 +164,8 @@ class PcaReduction(AggregationBase):
     def __init__(self, model_manager: ModelManager, dataset, config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "pca", parent_configuration_key)
 
-        num_models = len(config.get(parent_configuration_key + ".base_models"))
-        self.entity_dim = config.get(parent_configuration_key + ".entities.agg_dim") * num_models
-        self.relation_dim = config.get(parent_configuration_key + ".relations.agg_dim") * num_models
+        self.entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
+        self.relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
 
         self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), self.entity_dim)
         self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), self.relation_dim)
@@ -106,10 +188,8 @@ class PcaReduction(AggregationBase):
         # fetch and preprocess embeddings
         entity_embeds = self.model_manager.fetch_model_embeddings("s")
         relation_embeds = self.model_manager.fetch_model_embeddings("p")
-        n = entity_embeds.size()[0]
-        m = relation_embeds.size()[0]
-        entity_embeds = entity_embeds.view(n, -1)
-        relation_embeds = relation_embeds.view(m, -1)
+        entity_embeds = concat_embeds(entity_embeds)
+        relation_embeds = concat_embeds(relation_embeds)
 
         # prior standardization
         entity_embeds = StandardScaler().fit_transform(entity_embeds)
@@ -188,16 +268,13 @@ class AutoencoderReduction(AggregationBase):
 
 
 class Autoencoder(nn.Module, Configurable):
-    def __init__(self, config: Config, parent_configuration_key, embedding_key):
+    def __init__(self, config: Config, dim_in, dim_out):
         super(Autoencoder, self).__init__()
         Configurable.__init__(self, config, "autoencoder")
 
-        # get basic model configuration
-        num_models = len(config.get(parent_configuration_key + ".base_models"))
-        source_dim = config.get(parent_configuration_key + "." + embedding_key + ".source_dim")
-        reduced_dim = config.get(parent_configuration_key + "." + embedding_key + ".agg_dim")
-        self.dim_in = num_models * source_dim
-        self.dim_out = num_models * reduced_dim
+        # set basic autoencoder configuration
+        self.dim_in = dim_in
+        self.dim_out = dim_out
         self.num_layers = self.get_option("num_layers")
         self.dropout = self.get_option("dropout")
 

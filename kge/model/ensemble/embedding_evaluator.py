@@ -14,8 +14,8 @@ class EmbeddingEvaluator(nn.Module, Configurable):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
         # Fetch entity and relation dimensionality for evaluator
-        self.single_entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
-        self.single_relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
+        self.entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
+        self.relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         """
@@ -38,12 +38,11 @@ class KgeAdapter(EmbeddingEvaluator):
 
         model_name = self.get_option("model.type")
         class_name = config.get(model_name + ".class_name")
-        num_models = len(config.get(parent_configuration_key + ".base_models"))
 
         # if embedders are used, change embedding size to aggregated dimensions
         dim_options = {
-            self.configuration_key+".model.entity_embedder.dim": self.single_entity_dim * num_models,
-            self.configuration_key+".model.relation_embedder.dim": self.single_relation_dim * num_models
+            self.configuration_key+".model.entity_embedder.dim": self.entity_dim,
+            self.configuration_key+".model.relation_embedder.dim": self.relation_dim
         }
         self.config.load_options(dim_options, create=True)
 
@@ -79,15 +78,12 @@ class FineTuning(EmbeddingEvaluator):
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
         EmbeddingEvaluator.__init__(self, config, "finetuning", parent_configuration_key)
 
-        num_models = len(config.get(parent_configuration_key + ".base_models"))
-        entity_dim = self.single_entity_dim * num_models
-        relation_dim = self.single_relation_dim * num_models
         num_layers = self.get_option("num_layers")
 
         i = 0
         entity_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
-            entity_nn_dict[str(i) + "-linear"] = nn.Linear(entity_dim, entity_dim)
+            entity_nn_dict[str(i) + "-linear"] = nn.Linear(self.entity_dim, self.entity_dim)
             i += 1
             if idx + 1 < num_layers:
                 entity_nn_dict[str(i) + "-relu"] = nn.ReLU()
@@ -96,7 +92,7 @@ class FineTuning(EmbeddingEvaluator):
 
         relation_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
-            relation_nn_dict[str(i) + "-linear"] = nn.Linear(relation_dim, relation_dim)
+            relation_nn_dict[str(i) + "-linear"] = nn.Linear(self.relation_dim, self.relation_dim)
             i += 1
             if idx + 1 < num_layers:
                 relation_nn_dict[str(i) + "-relu"] = nn.ReLU()
