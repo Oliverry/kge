@@ -1,7 +1,7 @@
 import: [lookup_embedder]
 
-complex:
-  class_name: ComplexLiterale
+literale_distmult:
+  class_name: LiteraleDistmult
   entity_embedder:
     type: lookup_embedder
     +++: +++

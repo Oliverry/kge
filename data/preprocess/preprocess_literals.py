@@ -1,10 +1,6 @@
+import argparse
 import os
 from os.path import exists
-
-import argparse
-
-import numpy as np
-import pandas as pd
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -48,6 +44,6 @@ if __name__ == "__main__":
                     literal_del_file.write(
                         str(entity_ids[line_parts[0]]) + "\t" +
                         str(relation_ids[line_parts[1]]) + "\t" +
-                        str(line_parts[2]) + "\n"
+                        str(float(line_parts[2])) + "\n"
                     )
         literal_del_file.close()

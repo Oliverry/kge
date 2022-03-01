@@ -10,6 +10,8 @@ import pandas as pd
 import pickle
 import inspect
 
+from torch.nn.functional import normalize
+
 from kge import Config, Configurable
 import kge.indexing
 from kge.indexing import create_default_index_functions
@@ -64,7 +66,7 @@ class Dataset(Configurable):
         self._indexes: Dict[str, Any] = {}
 
         #: literal vector for each entity
-        self._literals: Dict[str, Any] = {}
+        self._literals = None
 
         #: functions that compute and add indexes as needed; arguments are dataset and
         #: key. Index functions are expected to not recompute an index that is already
@@ -117,11 +119,11 @@ class Dataset(Configurable):
             dataset.entity_ids()
             dataset.relation_ids()
             for split in ["train", "valid", "test"]:
-                source = config.get("dataset.files."+split+".source")
+                source = config.get("dataset.files." + split + ".source")
                 if source != split:
                     config.options["dataset"]["files"][split] = config.options["dataset"]["files"][source]
                 dataset.split(split)
-            # dataset.load_literals()
+            dataset.load_literals()
         return dataset
 
     @staticmethod
@@ -580,19 +582,49 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return Dataset._map_indexes(indexes, map_)
 
     def load_literals(self):
-        if len(self._literals) == 0:
-            try:
-                self.ensure_available("literals")
-                filename = self.config.get(f"dataset.files.literals.filename")
-                # load literals
-                literals, _ = Dataset._load_map(filename, True, "\t")
+        if self._literals is None:
+            # try:
+            self.ensure_available("literals")
+            filename = self.config.get(f"dataset.files.literals.filename")
 
-                self.config.log(f"Loaded {len(literals)} literals")
+            # load literals
+            filepath = os.path.join(self.folder, filename)
+            triples = pd.read_csv(
+                filepath, sep="\t", dtype={'x1': np.int, 'x2': np.int, 'x3': np.single}, header=None,
+                usecols=range(0, 3)
+            )
+            triples = triples.to_numpy()
+            triples = torch.from_numpy(triples)
+            self.config.log(f"Loaded {len(triples)} literals")
 
-                # map literals to vectors
-                # assign to intern literal variable
-            except:
-                self.config.log(f"Could not find literal dataset.")
+            literal_dict = {}
+            num_entities = self.config.get(f"dataset.num_entities")
+            num_literal_relations = torch.tensor(0)
+            # create entity dict
+            for i in range(num_entities):
+                literal_dict[i] = {}
 
-    def load_descriptions(self):
-        pass
+            # map literals to entities
+            for triple in triples:
+                if triple[1] > num_literal_relations:
+                    num_literal_relations = triple[1]
+                literal_dict[int(triple[0])][int(triple[1])] = triple[2]
+            num_literal_relations += 1
+
+            # create literal information
+            self._literals = torch.zeros(num_entities, int(num_literal_relations))
+            self.config.set("dataset.num_literals", int(num_literal_relations))
+
+            # add literal information to _literals
+            for entity_id, literals in literal_dict.items():
+                for rel_id, literal in literals.items():
+                    self._literals[entity_id][rel_id] = literal
+
+            self._literals = normalize(self._literals, p=2.0, dim=0)
+
+    def load_literal_emb(self, indexes: Tensor = None):
+        if indexes is None:
+            return self._literals
+        else:
+            res = torch.index_select(self._literals, 0, indexes)
+            return res
