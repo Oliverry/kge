@@ -56,7 +56,7 @@ class Ensemble(KgeModel):
         pretrained_model_checkpoint_path = os.path.join(pretrained_model_path, "checkpoint_best.pt")
         if exists(pretrained_model_checkpoint_path):
             checkpoint = load_checkpoint(pretrained_model_checkpoint_path, self.config.get("job.device"))
-            model = KgeModel.create_from(checkpoint)
+            model = KgeModel.create_from(checkpoint, self.dataset)
             return model
         else:
             raise Exception("Could not find pretrained model.")
