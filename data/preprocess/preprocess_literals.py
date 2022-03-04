@@ -1,3 +1,10 @@
+#!/usr/bin/env python
+"""
+Preprocess a given literals files into a suitable form for LibKGE.
+The literals file has to be in the corresponding folder named literals.txt
+such that we have the tab separated columns entity_ids, relations, literals.
+"""
+
 import argparse
 import os
 from os.path import exists

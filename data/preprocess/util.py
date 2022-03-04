@@ -1,4 +1,6 @@
 import argparse
+import random
+
 import numpy as np
 from os import path
 from dataclasses import dataclass, field
@@ -161,6 +163,40 @@ class SubSplit(Split):
 
     def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
         if self.begin_index <= kwargs["n"] < self.end_index:
+            super().process_triple(triple, entities, relations, **kwargs)
+
+
+@dataclass
+class RandomSubSplit(Split):
+    """
+    A split which uniformly samples with a given ratio.
+    """
+
+    set = set()
+    split_ratio: float = None
+
+    def prepare(self, folder: str):
+        super().prepare(folder)
+
+    def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
+        rdn = random.uniform(0.0, 1.0)
+        if rdn <= self.split_ratio:
+            super().process_triple(triple, entities, relations, **kwargs)
+            self.set.add(str(triple))
+
+
+@dataclass
+class DiffSubSplit(Split):
+    """
+    A split which contains all triples which are not in a reference RandomSubSplit.
+    """
+    ref_split: RandomSubSplit = None
+
+    def prepare(self, folder: str):
+        super().prepare(folder)
+
+    def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
+        if not str(triple) in self.ref_split.set:
             super().process_triple(triple, entities, relations, **kwargs)
 
 
@@ -343,22 +379,20 @@ def create_raw_dataset(
                 "split_type": "train",
             },
         )
-        train_base = SubSplit(
+        train_base = RandomSubSplit(
             raw_split=train_raw,
             key="train_base",
-            begin_index=0,
-            end_index=train_split,
+            split_ratio=0.8,
             options={
                 "type": "triples",
                 "filename": "train_base.del",
                 "split_type": "train",
-            },
+            }
         )
-        train_ensemble = SubSplit(
+        train_ensemble = DiffSubSplit(
             raw_split=train_raw,
             key="train_ensemble",
-            begin_index=train_split,
-            end_index=len(train_raw.data)+1,
+            ref_split=train_base,
             options={
                 "type": "triple",
                 "filename": "train_ensemble.del",
@@ -382,22 +416,20 @@ def create_raw_dataset(
                 "split_type": "valid",
             },
         )
-        valid_base = SubSplit(
+        valid_base = RandomSubSplit(
             raw_split=valid_raw,
             key="valid_base",
-            begin_index=0,
-            end_index=valid_split,
+            split_ratio=0.8,
             options={
                 "type": "triples",
                 "filename": "valid_base.del",
                 "split_type": "valid",
             },
         )
-        valid_ensemble = SubSplit(
+        valid_ensemble = DiffSubSplit(
             raw_split=valid_raw,
             key="valid_ensemble",
-            begin_index=valid_split,
-            end_index=len(valid_raw.data)+1,
+            ref_split=valid_base,
             options={
                 "type": "triple",
                 "filename": "valid_ensemble.del",
