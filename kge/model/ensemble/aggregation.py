@@ -292,7 +292,7 @@ class Autoencoder(nn.Module, Configurable):
         self.num_layers = self.get_option("num_layers")
         self.dropout = self.get_option("dropout")
 
-        # construct model layers and combine them
+        # construct model layers
         encode_dict = OrderedDict()
         decode_dict = OrderedDict()
 
@@ -326,7 +326,6 @@ class Autoencoder(nn.Module, Configurable):
         return decoded
 
     def reduce(self, x):
-        self.eval()
         with torch.no_grad():
             encoded = self.encoder(x)
         return encoded

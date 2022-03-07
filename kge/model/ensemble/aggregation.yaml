@@ -1,24 +1,24 @@
 import: [lookup_embedder]
 
 pca:
-  entity_reduction: 0.8
-  relation_reduction: 0.8
+  entity_reduction: 0.5
+  relation_reduction: 0.5
 
 autoencoder_reduction:
-  epochs: 50
+  epochs: 10
   lr: 1e-1
   weight_decay: 1e-8
   entity_reduction: 0.5
   relation_reduction: 0.5
 
 autoencoder:
-  num_layers: 3
+  num_layers: 1
   dropout: 0.2
 
 oneton:
-  entity_reduction: 0.75
-  relation_reduction: 0.75
-  epochs: 50
+  entity_reduction: 0.5
+  relation_reduction: 0.5
+  epochs: 10
   entity_embedder:
     type: lookup_embedder
     +++: +++
