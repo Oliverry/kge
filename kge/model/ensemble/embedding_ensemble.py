@@ -1,11 +1,12 @@
 import torch
-from torch import Tensor
 import torch.nn.functional
+from torch import Tensor
 
 from kge import Config, Dataset
-from kge.model import Ensemble, ReciprocalRelationsModel
+from kge.model import Ensemble
 from kge.model.ensemble.aggregation import AutoencoderReduction, Concatenation, OneToN, PcaReduction, MeanReduction
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
+from kge.model.ensemble.model_manager import EmbeddingTarget
 
 
 class EmbeddingEnsemble(Ensemble):
@@ -24,6 +25,7 @@ class EmbeddingEnsemble(Ensemble):
             init_for_load_only=init_for_load_only,
         )
 
+        # Lookup  embedding ensemble options
         self.normalize_p = self.get_option("normalize_p")
 
         # Lookup and initiate dimensionality reduction method
@@ -55,9 +57,9 @@ class EmbeddingEnsemble(Ensemble):
             self.aggregation.train_aggregation()
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
-        s_emb = self.aggregation.aggregate("s", s)
-        p_emb = self.aggregation.aggregate("p", p)
-        o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
+        p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
+        o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
         s_emb = self.postprocess(s_emb)
         p_emb = self.postprocess(p_emb)
         o_emb = self.postprocess(o_emb)
@@ -65,9 +67,9 @@ class EmbeddingEnsemble(Ensemble):
         return scores
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
-        s_emb = self.aggregation.aggregate("s", s)
-        p_emb = self.aggregation.aggregate("p", p)
-        o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
+        p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
+        o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
         s_emb = self.postprocess(s_emb)
         p_emb = self.postprocess(p_emb)
         o_emb = self.postprocess(o_emb)
@@ -75,9 +77,9 @@ class EmbeddingEnsemble(Ensemble):
         return scores
 
     def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
-        s_emb = self.aggregation.aggregate("s", s)
-        p_emb = self.aggregation.aggregate("p", p)
-        o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
+        p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
+        o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
         s_emb = self.postprocess(s_emb)
         p_emb = self.postprocess(p_emb)
         o_emb = self.postprocess(o_emb)
@@ -85,9 +87,9 @@ class EmbeddingEnsemble(Ensemble):
         return scores
 
     def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
-        s_emb = self.aggregation.aggregate("s", s)
-        p_emb = self.aggregation.aggregate("p", p)
-        o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
+        p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
+        o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
         s_emb = self.postprocess(s_emb)
         p_emb = self.postprocess(p_emb)
         o_emb = self.postprocess(o_emb)
@@ -96,16 +98,16 @@ class EmbeddingEnsemble(Ensemble):
 
     def score_sp_po(self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None) -> Tensor:
         # aggregate standard model embeddings
-        s_emb = self.aggregation.aggregate("s", s)
-        p_emb = self.aggregation.aggregate("p", p)
-        o_emb = self.aggregation.aggregate("o", o)
+        s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
+        p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
+        o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
         s_emb = self.postprocess(s_emb)
         p_emb = self.postprocess(p_emb)
         o_emb = self.postprocess(o_emb)
 
         # aggregate additional entity subset
-        sub_emb = self.aggregation.aggregate("s", entity_subset)
-        obj_emb = self.aggregation.aggregate("o", entity_subset)
+        sub_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, entity_subset)
+        obj_emb = self.aggregation.aggregate(EmbeddingTarget.Object, entity_subset)
         sub_emb = self.postprocess(sub_emb)
         obj_emb = self.postprocess(obj_emb)
 

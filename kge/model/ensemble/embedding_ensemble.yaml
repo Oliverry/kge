@@ -5,12 +5,6 @@ embedding_ensemble:
   base_models: [transe, complex]
   aggregation: autoencoder
   evaluator: kge_adapter
+  entity_agg_dim: -1
+  relation_agg_dim: -1
   normalize_p: 2.0
-  entities:
-    single_agg_dim: -1
-    agg_dim: -1
-    +++: +++
-  relations:
-    single_agg_dim: -1
-    agg_dim: -1
-    +++: +++

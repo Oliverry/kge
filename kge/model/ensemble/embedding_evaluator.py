@@ -13,9 +13,10 @@ class EmbeddingEvaluator(nn.Module, Configurable):
     def __init__(self, config: Config, configuration_key, parent_configuration_key):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
+
         # Fetch entity and relation dimensionality for evaluator
-        self.entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
-        self.relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
+        self.entity_dim = config.get(parent_configuration_key + ".entity_agg_dim")
+        self.relation_dim = config.get(parent_configuration_key + ".relation_agg_dim")
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         """
@@ -39,7 +40,7 @@ class KgeAdapter(EmbeddingEvaluator):
         model_name = self.get_option("model.type")
         class_name = config.get(model_name + ".class_name")
 
-        # if embedders are used, change embedding size to aggregated dimensions
+        # change embedding size to aggregated dimensions
         dim_options = {
             self.configuration_key+".model.entity_embedder.dim": self.entity_dim,
             self.configuration_key+".model.relation_embedder.dim": self.relation_dim

@@ -1,22 +1,27 @@
-import math
 from collections import OrderedDict
 
 import torch
+import torch.nn.functional as F
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from torch import nn, Tensor, optim
-from torch.utils.data import Dataset, DataLoader
-import torch.nn.functional as F
+from torch.utils.data import Dataset
 
 from kge import Configurable, Config
 from kge.model import KgeEmbedder
-from kge.model.ensemble.aggregation_data import AggregationDataset, create_aggregation_dataloader
-
-# TODO change embedding fetching
+from kge.model.ensemble.aggregation_data import create_aggregation_dataloader
 from kge.model.ensemble.model_manager import ModelManager
+from kge.model.ensemble.util import EmbeddingType, EmbeddingTarget
 
 
 def concat_embeds(embeds):
+    """
+    Takes embeddings of the form n times k_i, where n is the number of samples and k_i is the
+    model specific embedding size.
+    Return the concatenation of embeddings with form n times k, where k is the sum of k_i for 1 <= i <= m.
+    :param embeds:
+    :return:
+    """
     embeds_list = []
     for model_idx in embeds.keys():
         embeds_list.append(embeds[model_idx])
@@ -25,6 +30,12 @@ def concat_embeds(embeds):
 
 
 def pad_embeds(embeds, padding_length):
+    """
+    Pads all embeddings with zero to embedding length padding_length.
+    :param embeds:
+    :param padding_length:
+    :return:
+    """
     padded_embeds = {}
     for model_idx in embeds:
         model_embeds = embeds[model_idx]
@@ -35,6 +46,11 @@ def pad_embeds(embeds, padding_length):
 
 
 def avg_embeds(embeds):
+    """
+    Takes embeddings of the same form n times k and return the average mean over all embeddings.
+    :param embeds:
+    :return:
+    """
     embed_list = []
     for model_idx in embeds:
         embed = embeds[model_idx]
@@ -62,11 +78,11 @@ class AggregationBase(nn.Module, Configurable):
         nn.Module.__init__(self)
         self.model_manager = model_manager
         self.single_agg_dims = {}
-        self.set_agg_dims(parent_configuration_key)
+        self.entity_agg_dim = 0
+        self.relation_agg_dim = 0
+        self.set_dims(parent_configuration_key)
 
-    def set_agg_dims(self, parent_configuration_key):
-        embed_dims = self.model_manager.model_embed_dims()
-
+    def set_dims(self, parent_configuration_key):
         # get entity and relation reduction by percentage
         entity_reduction = 1.0
         relation_reduction = 1.0
@@ -76,23 +92,24 @@ class AggregationBase(nn.Module, Configurable):
             relation_reduction = self.get_option("relation_reduction")
 
         # compute single agg dims
-        for model_idx in embed_dims:
-            entity_agg_dim = round(embed_dims[model_idx][0] * entity_reduction)
-            relation_agg_dim = round(embed_dims[model_idx][1] * relation_reduction)
-            self.single_agg_dims[model_idx] = (entity_agg_dim, relation_agg_dim)
+        embed_dims = self.model_manager.get_model_dims()
+        for model_idx in range(self.model_manager.num_models()):
+            entity_agg_dim = round(embed_dims[model_idx][EmbeddingType.Entity] * entity_reduction)
+            relation_agg_dim = round(embed_dims[model_idx][EmbeddingType.Relation] * relation_reduction)
+            self.single_agg_dims[model_idx] = {
+                EmbeddingType.Entity: entity_agg_dim, EmbeddingType.Relation: relation_agg_dim
+            }
 
         # compute summarized agg dim
-        entity_agg = 0
-        relation_agg = 0
-        for model_agg_dim in self.single_agg_dims:
-            entity_agg += self.single_agg_dims[model_agg_dim][0]
-            relation_agg += self.single_agg_dims[model_agg_dim][0]
+        for model_idx in range(self.model_manager.num_models()):
+            self.entity_agg_dim += self.single_agg_dims[model_idx][EmbeddingType.Entity]
+            self.relation_agg_dim += self.single_agg_dims[model_idx][EmbeddingType.Relation]
 
         # write agg dims for evaluator in embedding ensemble config
-        self.config.set(parent_configuration_key + ".entities.agg_dim", entity_agg)
-        self.config.set(parent_configuration_key + ".relations.agg_dim", relation_agg)
+        self.config.set(parent_configuration_key + ".entity_agg_dim", self.entity_agg_dim)
+        self.config.set(parent_configuration_key + ".relation_agg_dim", self.relation_agg_dim)
 
-    def aggregate(self, target, indexes: Tensor = None):
+    def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         """
         Applies an aggregation function for the given indexes and the specified target of
         embedder
@@ -109,9 +126,9 @@ class AggregationBase(nn.Module, Configurable):
 class Concatenation(AggregationBase):
 
     def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
-        AggregationBase.__init__(self, model_manager, config, None, parent_configuration_key)
+        AggregationBase.__init__(self, model_manager, config, "concat", parent_configuration_key)
 
-    def aggregate(self, target, indexes: Tensor = None):
+    def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         t = self.model_manager.fetch_model_embeddings(target, indexes)
         res = concat_embeds(t)
         return res
@@ -123,35 +140,36 @@ class Concatenation(AggregationBase):
 class MeanReduction(AggregationBase):
 
     def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
-        AggregationBase.__init__(self, model_manager, config, None, parent_configuration_key)
+        AggregationBase.__init__(self, model_manager, config, "mean", parent_configuration_key)
 
-    def set_agg_dims(self, parent_configuration_key):
-        embed_dims = self.model_manager.model_embed_dims()
-
-        # find longest entity and relation embeddings
+    def set_dims(self, parent_configuration_key):
+        # find the longest entity and relation embeddings
         max_entity_dim = 0
         max_relation_dim = 0
-        for model_idx in embed_dims:
-            if embed_dims[model_idx][0] > max_entity_dim:
-                max_entity_dim = embed_dims[model_idx][0]
-            if embed_dims[model_idx][1] > max_relation_dim:
-                max_relation_dim = embed_dims[model_idx][1]
+        embed_dims = self.model_manager.get_model_dims()
+        for model_idx in range(self.model_manager.num_models()):
+            if embed_dims[model_idx][EmbeddingType.Entity] > max_entity_dim:
+                max_entity_dim = embed_dims[model_idx][EmbeddingType.Entity]
+            if embed_dims[model_idx][EmbeddingType.Relation] > max_relation_dim:
+                max_relation_dim = embed_dims[model_idx][EmbeddingType.Relation]
 
         # set agg embedding dims
-        self.single_agg_dims[0] = (max_entity_dim, max_relation_dim)
+        self.single_agg_dims[0] = {
+            EmbeddingType.Entity: max_entity_dim, EmbeddingType.Relation: max_relation_dim
+        }
 
         # write agg dims for evaluator in embedding ensemble config
-        self.config.set(parent_configuration_key + ".entities.agg_dim", max_entity_dim)
-        self.config.set(parent_configuration_key + ".relations.agg_dim", max_relation_dim)
+        self.config.set(parent_configuration_key + ".entity_agg_dim", max_entity_dim)
+        self.config.set(parent_configuration_key + ".relation_agg_dim", max_relation_dim)
 
-    def aggregate(self, target, indexes: Tensor = None):
+    def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         t = self.model_manager.fetch_model_embeddings(target, indexes)
-        if target == "s" or target == "o":
-            t = pad_embeds(t, self.single_agg_dims[0][0])
-        elif target == "p":
-            t = pad_embeds(t, self.single_agg_dims[0][1])
+        if target == EmbeddingTarget.Subject or target == EmbeddingTarget.Object:
+            t = pad_embeds(t, self.single_agg_dims[0][EmbeddingType.Entity])
+        elif target == EmbeddingTarget.Predicate:
+            t = pad_embeds(t, self.single_agg_dims[0][EmbeddingType.Relation])
         else:
-            raise ValueError("Unknown target embedding.")
+            raise ValueError("Unknown target embedding: " + str(target))
         t = avg_embeds(t)
         return t
 
@@ -164,30 +182,26 @@ class PcaReduction(AggregationBase):
     def __init__(self, model_manager: ModelManager, dataset, config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "pca", parent_configuration_key)
 
-        self.entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
-        self.relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
+        self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), self.entity_agg_dim)
+        self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), self.relation_agg_dim)
 
-        self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), self.entity_dim)
-        self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), self.relation_dim)
-
-    def aggregate(self, target, indexes: Tensor = None):
-        if target == "s" or target == "o":
+    def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
+        if target == EmbeddingTarget.Subject or target == EmbeddingTarget.Object:
             out = self._entity_embedder(indexes.long())
-            return out
-        elif target == "p":
+        elif target == EmbeddingTarget.Predicate:
             out = self._relation_embedder(indexes.long())
-            return out
         else:
-            raise ValueError("Unknown target embedding.")
+            raise ValueError("Unknown target embedding:" + str(target))
+        return out
 
     def train_aggregation(self):
         # create pca models
-        entity_pca = PCA(n_components=self.entity_dim)
-        relation_pca = PCA(n_components=self.relation_dim)
+        entity_pca = PCA(n_components=self.entity_agg_dim)
+        relation_pca = PCA(n_components=self.relation_agg_dim)
 
         # fetch and preprocess embeddings
-        entity_embeds = self.model_manager.fetch_model_embeddings("s")
-        relation_embeds = self.model_manager.fetch_model_embeddings("p")
+        entity_embeds = self.model_manager.fetch_model_embeddings(EmbeddingTarget.Subject)
+        relation_embeds = self.model_manager.fetch_model_embeddings(EmbeddingTarget.Predicate)
         entity_embeds = concat_embeds(entity_embeds)
         relation_embeds = concat_embeds(relation_embeds)
 
