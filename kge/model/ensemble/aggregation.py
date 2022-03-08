@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import List, Dict, Any
 
 import torch
 import torch.nn.functional as F
@@ -77,12 +78,23 @@ class AggregationBase(nn.Module, Configurable):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
         self.model_manager = model_manager
-        self.single_agg_dims = {}
+
+        # compute aggregated entity and relation dimensions
         self.entity_agg_dim = 0
         self.relation_agg_dim = 0
-        self.set_dims(parent_configuration_key)
+        self.compute_dims()
 
-    def set_dims(self, parent_configuration_key):
+        # write agg dims for evaluator in embedding ensemble config
+        self.config.set(parent_configuration_key + ".entity_agg_dim", self.entity_agg_dim)
+        self.config.set(parent_configuration_key + ".relation_agg_dim", self.relation_agg_dim)
+
+    def compute_dims(self):
+        # compute concatenated agg dim
+        embed_dims = self.model_manager.get_model_dims()
+        for model_idx in range(self.model_manager.num_models()):
+            self.entity_agg_dim += embed_dims[model_idx][EmbeddingType.Entity]
+            self.relation_agg_dim += embed_dims[model_idx][EmbeddingType.Relation]
+
         # get entity and relation reduction by percentage
         entity_reduction = 1.0
         relation_reduction = 1.0
@@ -91,23 +103,8 @@ class AggregationBase(nn.Module, Configurable):
         if self.has_option("relation_reduction"):
             relation_reduction = self.get_option("relation_reduction")
 
-        # compute single agg dims
-        embed_dims = self.model_manager.get_model_dims()
-        for model_idx in range(self.model_manager.num_models()):
-            entity_agg_dim = round(embed_dims[model_idx][EmbeddingType.Entity] * entity_reduction)
-            relation_agg_dim = round(embed_dims[model_idx][EmbeddingType.Relation] * relation_reduction)
-            self.single_agg_dims[model_idx] = {
-                EmbeddingType.Entity: entity_agg_dim, EmbeddingType.Relation: relation_agg_dim
-            }
-
-        # compute summarized agg dim
-        for model_idx in range(self.model_manager.num_models()):
-            self.entity_agg_dim += self.single_agg_dims[model_idx][EmbeddingType.Entity]
-            self.relation_agg_dim += self.single_agg_dims[model_idx][EmbeddingType.Relation]
-
-        # write agg dims for evaluator in embedding ensemble config
-        self.config.set(parent_configuration_key + ".entity_agg_dim", self.entity_agg_dim)
-        self.config.set(parent_configuration_key + ".relation_agg_dim", self.relation_agg_dim)
+        self.entity_agg_dim = round(self.entity_agg_dim * entity_reduction)
+        self.relation_agg_dim = round(self.relation_agg_dim * relation_reduction)
 
     def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         """
@@ -142,32 +139,19 @@ class MeanReduction(AggregationBase):
     def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "mean", parent_configuration_key)
 
-    def set_dims(self, parent_configuration_key):
+    def compute_dims(self):
         # find the longest entity and relation embeddings
-        max_entity_dim = 0
-        max_relation_dim = 0
         embed_dims = self.model_manager.get_model_dims()
         for model_idx in range(self.model_manager.num_models()):
-            if embed_dims[model_idx][EmbeddingType.Entity] > max_entity_dim:
-                max_entity_dim = embed_dims[model_idx][EmbeddingType.Entity]
-            if embed_dims[model_idx][EmbeddingType.Relation] > max_relation_dim:
-                max_relation_dim = embed_dims[model_idx][EmbeddingType.Relation]
-
-        # set agg embedding dims
-        self.single_agg_dims[0] = {
-            EmbeddingType.Entity: max_entity_dim, EmbeddingType.Relation: max_relation_dim
-        }
-
-        # write agg dims for evaluator in embedding ensemble config
-        self.config.set(parent_configuration_key + ".entity_agg_dim", max_entity_dim)
-        self.config.set(parent_configuration_key + ".relation_agg_dim", max_relation_dim)
+            self.entity_agg_dim = max(self.entity_agg_dim, embed_dims[model_idx][EmbeddingType.Entity])
+            self.relation_agg_dim = max(self.relation_agg_dim, embed_dims[model_idx][EmbeddingType.Relation])
 
     def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         t = self.model_manager.fetch_model_embeddings(target, indexes)
         if target == EmbeddingTarget.Subject or target == EmbeddingTarget.Object:
-            t = pad_embeds(t, self.single_agg_dims[0][EmbeddingType.Entity])
+            t = pad_embeds(t, self.entity_agg_dim)
         elif target == EmbeddingTarget.Predicate:
-            t = pad_embeds(t, self.single_agg_dims[0][EmbeddingType.Relation])
+            t = pad_embeds(t, self.relation_agg_dim)
         else:
             raise ValueError("Unknown target embedding: " + str(target))
         t = avg_embeds(t)
@@ -223,34 +207,71 @@ class AutoencoderReduction(AggregationBase):
     def __init__(self, model_manager: ModelManager, config: Config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "autoencoder_reduction", parent_configuration_key)
 
-        if config.get("job.type") == "train":
-            self.epochs = self.get_option("epochs")
-            self.lr = self.get_option("lr")
-            self.weight_decay = self.get_option("weight_decay")
+        # get training parameters
+        self.epochs = self.get_option("epochs")
+        self.lr = self.get_option("lr")
+        self.batch_size = self.get_option("batch_size")
+        self.weight_decay = self.get_option("weight_decay")
 
-        self.entity_model = Autoencoder(config, parent_configuration_key, "entities")
-        self.relation_model = Autoencoder(config, parent_configuration_key, "relations")
+        # create autoencoders
+        entity_autoencoders = []
+        relation_autoencoders = []
+        embed_dims = self.model_manager.get_model_dims()
+        for model_idx in range(self.model_manager.num_models()):
+            entity_dim_in = embed_dims[model_idx][EmbeddingType.Entity]
+            relation_dim_in = embed_dims[model_idx][EmbeddingType.Relation]
+            entity_autoencoders.append(Autoencoder(config, entity_dim_in, self.entity_agg_dim))
+            relation_autoencoders.append(Autoencoder(config, relation_dim_in, self.relation_agg_dim))
+        self.entity_models = nn.ModuleList(entity_autoencoders)
+        self.relation_models = nn.ModuleList(relation_autoencoders)
 
     def aggregate(self, target, indexes: Tensor = None):
         embeds = self.model_manager.fetch_model_embeddings(target, indexes)
-        n = embeds.size()[0]
-        embeds = embeds.view(n, -1)  # transform tensor to autoencoder format
-        if target == "s" or target == "o":
-            embeds = self.entity_model.reduce(embeds)
-        elif target == "p":
-            embeds = self.relation_model.reduce(embeds)
-        return embeds
+        if target == EmbeddingTarget.Subject or target == EmbeddingTarget.Object:
+            res = self.encode(EmbeddingType.Entity, embeds)
+        elif target == EmbeddingTarget.Predicate:
+            res = self.encode(EmbeddingType.Relation, embeds)
+        else:
+            raise ValueError("Unknown target embedding:" + str(target))
+        return res
+
+    def encode(self, e_type: EmbeddingType, embeds: Dict[int, Tensor]) -> Tensor:
+        encoded = {}
+        for model_idx, embed in embeds.items():
+            if e_type == EmbeddingType.Entity:
+                encoded_embed = self.entity_models[model_idx].encode(embed)
+            elif e_type == EmbeddingType.Relation:
+                encoded_embed = self.relation_models[model_idx].encode(embed)
+            else:
+                raise ValueError("Unknown embedding type:" + str(e_type))
+            encoded[model_idx] = encoded_embed
+        res = avg_embeds(encoded)
+        return res
+
+    def decode(self, e_type: EmbeddingType, embeds: Tensor) -> Dict[int, Tensor]:
+        decoded = {}
+        for model_idx in self.model_manager.num_models():
+            if e_type == EmbeddingType.Entity:
+                decoded_embed = self.entity_models[model_idx].decode(embeds)
+            elif e_type == EmbeddingType.Relation:
+                decoded_embed = self.relation_models[model_idx].decode(embeds)
+            else:
+                raise ValueError("Unknown embedding type:" + str(e_type))
+            decoded[model_idx] = decoded_embed
+        return decoded
 
     def train_aggregation(self):
         # create dataloader
-        entity_dataloader = create_aggregation_dataloader(self.model_manager, "entities", 50, True)
-        relation_dataloader = create_aggregation_dataloader(self.model_manager, "relations", 50, True)
+        entity_dataloader = create_aggregation_dataloader(self.model_manager, EmbeddingType.Entity, 50, True)
+        relation_dataloader = create_aggregation_dataloader(self.model_manager, EmbeddingType.Relation, 50, True)
 
         print("Training entity autoencoder")
-        self.train_model(entity_dataloader, self.entity_model)
+        self.train_model(entity_dataloader, self.entity_models)
 
         print("Training relation autoencoder")
-        self.train_model(relation_dataloader, self.relation_model)
+        self.train_model(relation_dataloader, self.relation_models)
+
+        print("Completed aggregation training.")
 
     def train_model(self, dataloader, model):
         model.train()
@@ -278,7 +299,7 @@ class AutoencoderReduction(AggregationBase):
                 optimizer.step()
 
                 loss_val += loss.item()
-            print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, self.epochs, loss_val))
+            self.config.log("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, self.epochs, loss_val))
 
 
 class Autoencoder(nn.Module, Configurable):
@@ -321,14 +342,17 @@ class Autoencoder(nn.Module, Configurable):
         self.decoder = torch.nn.Sequential(decode_dict)
 
     def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
+        encoded = self.encode(x)
+        decoded = self.decode(encoded)
         return decoded
 
-    def reduce(self, x):
-        with torch.no_grad():
-            encoded = self.encoder(x)
+    def encode(self, x):
+        encoded = self.encoder(x)
         return encoded
+
+    def decode(self, x):
+        decoded = self.decoder(x)
+        return decoded
 
 
 class OneToN(AggregationBase):
