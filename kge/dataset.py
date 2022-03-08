@@ -620,10 +620,11 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
                     self._literals[entity_id][rel_id] = literal
 
             self._literals = normalize(self._literals, p=2.0, dim=0)
+            self._literals = self._literals.to(self.config.get("job.device"))
 
     def load_literal_emb(self, indexes: Tensor = None):
         if indexes is None:
-            return self._literals
+            res = self._literals
         else:
             res = torch.index_select(self._literals, 0, indexes)
-            return res
+        return res
