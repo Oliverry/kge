@@ -7,7 +7,10 @@ such that we have the tab separated columns entity_ids, relations, literals.
 
 import argparse
 import os
+import sys
 from os.path import exists
+
+import yaml
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -16,6 +19,8 @@ if __name__ == "__main__":
 
     literal_file_path = os.path.join(args.folder, "literals.txt")
     if exists(literal_file_path):
+        print("Found literals file " + literal_file_path)
+        print("Starting preprocessing")
         # dicts for processing
         entity_ids = {}
         relation_ids = {}
@@ -42,8 +47,10 @@ if __name__ == "__main__":
         literal_del_file_path = os.path.join(args.folder, "literals.del")
         literal_del_file = open(literal_del_file_path, "w")
         literal_file.seek(0)
+        num_literals = 0
         for line in literal_file:
             if len(line) > 0:
+                num_literals += 1
                 line_tmp = line.replace("\n", "")
                 line_parts = line_tmp.split("\t")
                 # if entity is contained in dataset
@@ -54,3 +61,20 @@ if __name__ == "__main__":
                         str(float(line_parts[2])) + "\n"
                     )
         literal_del_file.close()
+
+        # write information to dataset yaml file
+        config_file_path = os.path.join(args.folder, "dataset.yaml")
+        with open(config_file_path, "r+") as file:
+            try:
+                config = yaml.safe_load(file)
+                config["dataset"]["files.literals.filename"] = "literals.del"
+                config["dataset"]["files.literals.type"] = "triples"
+                config["dataset"]["files.literals.size"] = num_literals
+                file.seek(0)
+                file.truncate()
+                yaml.dump(config, file)
+            except yaml.YAMLError as exception:
+                print(exception)
+                sys.exit(0)
+    else:
+        print("Found no literals for dataset.")

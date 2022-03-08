@@ -583,7 +583,6 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
 
     def load_literals(self):
         if self._literals is None and self.config.exists(f"dataset.files.literals"):
-            # try:
             self.ensure_available("literals")
             filename = self.config.get(f"dataset.files.literals.filename")
 
