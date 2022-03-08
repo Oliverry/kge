@@ -26,7 +26,10 @@ class AggregationDataset(Dataset):
             raise ValueError("Unknown embedding type: " + str(e_type))
 
     def __len__(self):
-        return len(self.data)
+        return self.data[0].size()[0]
 
     def __getitem__(self, idx):
-        return idx, self.data[idx]
+        item = {}
+        for key, value in self.data.items():
+            item[key] = value[idx]
+        return idx, item

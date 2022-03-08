@@ -250,7 +250,7 @@ class AutoencoderReduction(AggregationBase):
 
     def decode(self, e_type: EmbeddingType, embeds: Tensor) -> Dict[int, Tensor]:
         decoded = {}
-        for model_idx in self.model_manager.num_models():
+        for model_idx in range(self.model_manager.num_models()):
             if e_type == EmbeddingType.Entity:
                 decoded_embed = self.entity_models[model_idx].decode(embeds)
             elif e_type == EmbeddingType.Relation:
@@ -261,20 +261,18 @@ class AutoencoderReduction(AggregationBase):
         return decoded
 
     def train_aggregation(self):
-        # create dataloader
-        entity_dataloader = create_aggregation_dataloader(self.model_manager, EmbeddingType.Entity, 50, True)
-        relation_dataloader = create_aggregation_dataloader(self.model_manager, EmbeddingType.Relation, 50, True)
-
         print("Training entity autoencoder")
-        self.train_model(entity_dataloader, self.entity_models)
+        self.train_model(EmbeddingType.Entity, self.entity_models)
 
         print("Training relation autoencoder")
-        self.train_model(relation_dataloader, self.relation_models)
+        self.train_model(EmbeddingType.Relation, self.relation_models)
 
         print("Completed aggregation training.")
 
-    def train_model(self, dataloader, model):
+    def train_model(self, e_type: EmbeddingType, model):
         model.train()
+        # create dataloader
+        dataloader = create_aggregation_dataloader(self.model_manager, e_type, 50, True)
         # validation using MSE Loss function
         loss_function = torch.nn.MSELoss()
         # using an Adam Optimizer
@@ -282,23 +280,24 @@ class AutoencoderReduction(AggregationBase):
         for epoch in range(self.epochs):
             loss_val = 0
             for _, batch in dataloader:
-                n = batch.size()[0]
-                embeds = batch.view(n, -1)
+                encoded_embeds = self.encode(e_type, batch)
+                target = self.decode(e_type, encoded_embeds)
 
-                # Output of Autoencoder
-                reconstructed = model(embeds)
+                max_emb = 0
+                for value in batch.values():
+                    max_emb = max(max_emb, value.size()[1])
 
-                # Calculating the loss function
-                loss = loss_function(reconstructed, embeds)
+                input = pad_embeds(batch, max_emb)
+                input = concat_embeds(input)
+                output = pad_embeds(target, max_emb)
+                output = concat_embeds(output)
 
-                # The gradients are set to zero,
-                # then the gradient is computed and stored.
-                # .step() performs parameter update
+                loss = loss_function(input, output)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-
                 loss_val += loss.item()
+
             self.config.log("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, self.epochs, loss_val))
 
 
