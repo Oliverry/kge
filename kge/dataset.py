@@ -626,5 +626,5 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         if indexes is None:
             res = self._literals
         else:
-            res = torch.index_select(self._literals, 0, indexes)
+            res = torch.index_select(self._literals, 0, indexes.long())
         return res
