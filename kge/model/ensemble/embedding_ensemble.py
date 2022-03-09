@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 import torch.nn.functional
 from torch import Tensor
@@ -125,4 +127,6 @@ class EmbeddingEnsemble(Ensemble):
 
     def penalty(self, **kwargs) -> List[Tensor]:
         result = super().penalty(**kwargs)
+        result += self.aggregation.penalty(**kwargs)
+        return result
 

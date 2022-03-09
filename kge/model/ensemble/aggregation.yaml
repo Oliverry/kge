@@ -19,10 +19,3 @@ autoencoder:
 oneton:
   entity_reduction: 0.5
   relation_reduction: 0.5
-  epochs: 10
-  entity_embedder:
-    type: lookup_embedder
-    +++: +++
-  relation_embedder:
-    type: lookup_embedder
-    +++: +++

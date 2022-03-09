@@ -1,15 +1,13 @@
 from collections import OrderedDict
-from typing import List, Dict, Any
+from typing import List, Dict
 
 import torch
 import torch.nn.functional as F
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from torch import nn, Tensor, optim
-from torch.utils.data import Dataset
+from torch import nn, Tensor
 
-from kge import Configurable, Config
-from kge.model import KgeEmbedder
+from kge import Configurable, Config, Dataset
 from kge.model.ensemble.aggregation_data import create_aggregation_dataloader
 from kge.model.ensemble.model_manager import ModelManager
 from kge.model.ensemble.util import EmbeddingType, EmbeddingTarget
@@ -118,6 +116,9 @@ class AggregationBase(nn.Module, Configurable):
 
     def train_aggregation(self):
         raise NotImplementedError
+
+    def penalty(self, **kwargs) -> List[Tensor]:
+        return []
 
 
 class Concatenation(AggregationBase):
@@ -287,12 +288,12 @@ class AutoencoderReduction(AggregationBase):
                 for value in batch.values():
                     max_emb = max(max_emb, value.size()[1])
 
-                input = pad_embeds(batch, max_emb)
-                input = concat_embeds(input)
-                output = pad_embeds(target, max_emb)
-                output = concat_embeds(output)
+                emb_in = pad_embeds(batch, max_emb)
+                emb_in = concat_embeds(emb_in)
+                emb_out = pad_embeds(target, max_emb)
+                emb_out = concat_embeds(emb_out)
 
-                loss = loss_function(input, output)
+                loss = loss_function(emb_in, emb_out)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -356,104 +357,91 @@ class Autoencoder(nn.Module, Configurable):
 
 class OneToN(AggregationBase):
 
-    def __init__(self, model_manager: ModelManager, dataset: Dataset, config: Config,
-                 parent_configuration_key, init_for_load_only=False):
+    def __init__(self, model_manager: ModelManager, dataset: Dataset, config: Config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "oneton", parent_configuration_key)
 
-        # modify embedder config
-        entity_dim = config.get(parent_configuration_key + ".entities.agg_dim")
-        relation_dim = config.get(parent_configuration_key + ".relations.agg_dim")
-        num_models = len(config.get(parent_configuration_key + ".base_models"))
-        self.set_option("entity_embedder.dim", entity_dim * num_models)
-        self.set_option("relation_embedder.dim", relation_dim * num_models)
+        # set model parameters
+        self.dataset = dataset
 
-        # create embedders for metaembeddings
-        # TODO if init_for_load_only, load embeddings?
-        num_models = len(config.get(parent_configuration_key + ".base_models"))
-        self._entity_embedder = KgeEmbedder.create(
-            config,
-            dataset,
-            self.configuration_key + ".entity_embedder",
-            dataset.num_entities(),
-            init_for_load_only=init_for_load_only,
-        )
-        self._relation_embedder = KgeEmbedder.create(
-            config,
-            dataset,
-            self.configuration_key + ".relation_embedder",
-            dataset.num_relations(),
-            init_for_load_only=init_for_load_only,
-        )
+        # create embedders
+        self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), self.entity_agg_dim)
+        self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), self.relation_agg_dim)
 
         # create neural nets for metaembedding projection
-        # TODO do not load nets when evaluation?
+        num_models = self.model_manager.num_models()
+        model_dims = self.model_manager.get_model_dims()
         self.entity_nets = nn.ModuleList(
-            [OneToNet(config, parent_configuration_key, "entities") for _ in range(0, num_models)]
+            [OneToNet(config, self.entity_agg_dim, model_dims[model_idx][EmbeddingType.Entity])
+             for model_idx in range(0, num_models)]
         )
-        self.relations_nets = nn.ModuleList(
-            [OneToNet(config, parent_configuration_key, "relations") for _ in range(0, num_models)]
+        self.relation_nets = nn.ModuleList(
+            [OneToNet(config, self.entity_agg_dim, model_dims[model_idx][EmbeddingType.Relation])
+             for model_idx in range(0, num_models)]
         )
-
-        # get training parameters if training
-        if not init_for_load_only:
-            self.epochs = self.get_option("epochs")
 
     def aggregate(self, target, indexes: Tensor = None):
-        if target == "s" or target == "o":
+        if target == EmbeddingTarget.Subject or target == EmbeddingTarget.Object:
             if indexes is None:
-                return self._entity_embedder.embed_all()
+                entity_indexes = torch.arange(
+                    self.dataset.num_entities(), dtype=torch.long, device=self._entity_embedder.weight.device
+                )
+                return self._entity_embedder(entity_indexes)
             else:
-                return self._entity_embedder.embed(indexes)
-        elif target == "p":
+                return self._entity_embedder(indexes.long())
+        elif target == EmbeddingTarget.Predicate:
             if indexes is None:
-                return self._relation_embedder.embed_all()
+                relation_indexes = torch.arange(
+                    self.dataset.num_relations(), dtype=torch.long, device=self._entity_embedder.weight.device
+                )
+                return self._relation_embedder(relation_indexes)
             else:
-                return self._relation_embedder.embed(indexes)
+                return self._relation_embedder(indexes.long())
         else:
-            raise ValueError("Unknown target embedding.")
+            raise ValueError("Unknown target embedding " + str(target))
 
     def train_aggregation(self):
-        # create dataloader
-        entity_dataloader = create_aggregation_dataloader(self.model_manager, "entities", 50, True)
-        relation_dataloader = create_aggregation_dataloader(self.model_manager, "relations", 50, True)
+        pass
 
-        print("Training entity autoencoder")
-        self.train_model(entity_dataloader, self.entity_nets, self._entity_embedder)
+    def penalty(self, **kwargs) -> List[Tensor]:
+        result = super().penalty(**kwargs)
+        penalty_sum = torch.Tensor([0])
+        loss_fn = torch.nn.MSELoss()
 
-        print("Training relation autoencoder")
-        self.train_model(relation_dataloader, self.relations_nets, self._relation_embedder)
+        # fetch all original model embeddings for entities and relations
+        entity_embeds = self.model_manager.fetch_model_embeddings(EmbeddingTarget.Subject)
+        relation_embeds = self.model_manager.fetch_model_embeddings(EmbeddingTarget.Predicate)
 
-    def train_model(self, dataloader, models, embedder):
-        # Define the loss
-        loss_func = nn.MSELoss()
-        optimizer = optim.SGD(models.parameters(), lr=0.1)
-        for e in range(self.epochs):
-            running_loss = 0
-            for indexes, data in dataloader:
-                # zero the parameter gradients
-                optimizer.zero_grad()
+        # get all entity and relation indexes
+        entity_indexes = torch.arange(
+            self.dataset.num_entities(), dtype=torch.long, device=self._entity_embedder.weight.device
+        )
+        relation_indexes = torch.arange(
+            self.dataset.num_relations(), dtype=torch.long, device=self._entity_embedder.weight.device
+        )
 
-                for m, net in enumerate(models):
-                    model_embeds = data[:, m]
-                    out = net(embedder.embed(indexes))
-                    loss = loss_func(out, model_embeds)
-                    loss.backward()
-                    optimizer.step()
-                    running_loss += loss.item()
-                # normalization of embedders
-            else:
-                print(f"Training loss: {running_loss / len(dataloader)}")
+        # compute model specific entity and relation penalties
+        for model_idx in range(self.model_manager.num_models()):
+            entity_projections = self.entity_nets[model_idx](self._entity_embedder(entity_indexes))
+            entity_penalty = loss_fn(entity_embeds[model_idx], entity_projections)
+            relation_projections = self.relation_nets[model_idx](self._entity_embedder(relation_indexes))
+            relation_penalty = loss_fn(relation_embeds[model_idx], relation_projections)
+            penalty_sum += entity_penalty + relation_penalty
+
+        result += [
+            (
+                f"{self.configuration_key}.projection_penalty",
+                penalty_sum
+            )
+        ]
+        return result
 
 
 class OneToNet(nn.Module, Configurable):
 
-    def __init__(self, config: Config, parent_configuration_key, embedding_key):
+    def __init__(self, config: Config, dim_in, dim_out):
         super(OneToNet, self).__init__()
         Configurable.__init__(self, config, "onetonet")
-        num_models = len(config.get(parent_configuration_key + ".base_models"))
-        source_dim = config.get(parent_configuration_key + "." + embedding_key + ".source_dim")
-        reduced_dim = config.get(parent_configuration_key + "." + embedding_key + ".agg_dim")
-        self.layer = nn.Linear(reduced_dim * num_models, source_dim, bias=False)
+        self.layer = nn.Linear(dim_in, dim_out, bias=False)
 
     def forward(self, x):
         x = self.layer(x)
