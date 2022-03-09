@@ -234,7 +234,7 @@ class AutoencoderReduction(AggregationBase):
             res = self.encode(EmbeddingType.Relation, embeds)
         else:
             raise ValueError("Unknown target embedding:" + str(target))
-        return res
+        return res.detach()
 
     def encode(self, e_type: EmbeddingType, embeds: Dict[int, Tensor]) -> Tensor:
         encoded = {}
