@@ -172,12 +172,23 @@ class PcaReduction(AggregationBase):
 
     def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         if target == EmbeddingTarget.Subject or target == EmbeddingTarget.Object:
-            out = self._entity_embedder(indexes.long())
+            if indexes is None:
+                entity_indexes = torch.arange(
+                    self.dataset.num_entities(), dtype=torch.long, device=self._entity_embedder.weight.device
+                )
+                return self._entity_embedder(entity_indexes)
+            else:
+                return self._entity_embedder(indexes.long())
         elif target == EmbeddingTarget.Predicate:
-            out = self._relation_embedder(indexes.long())
+            if indexes is None:
+                relation_indexes = torch.arange(
+                    self.dataset.num_relations(), dtype=torch.long, device=self._entity_embedder.weight.device
+                )
+                return self._relation_embedder(relation_indexes)
+            else:
+                return self._relation_embedder(indexes.long())
         else:
-            raise ValueError("Unknown target embedding:" + str(target))
-        return out
+            raise ValueError("Unknown target embedding " + str(target))
 
     def train_aggregation(self):
         # create pca models
@@ -196,11 +207,13 @@ class PcaReduction(AggregationBase):
 
         # apply pca
         entity_embeds = entity_pca.fit_transform(entity_embeds)
+        entity_embeds = torch.tensor(entity_embeds, dtype=torch.float, device=self.config.get("job.device"))
         relation_embeds = relation_pca.fit_transform(relation_embeds)
+        relation_embeds = torch.tensor(relation_embeds, dtype=torch.float, device=self.config.get("job.device"))
 
         # store embeddings
-        self._entity_embedder = nn.Embedding.from_pretrained(torch.tensor(entity_embeds, dtype=torch.float))
-        self._relation_embedder = nn.Embedding.from_pretrained(torch.tensor(relation_embeds, dtype=torch.float))
+        self._entity_embedder = nn.Embedding.from_pretrained(entity_embeds)
+        self._relation_embedder = nn.Embedding.from_pretrained(relation_embeds)
 
 
 class AutoencoderReduction(AggregationBase):
@@ -372,11 +385,11 @@ class OneToN(AggregationBase):
         model_dims = self.model_manager.get_model_dims()
         self.entity_nets = nn.ModuleList(
             [OneToNet(config, self.entity_agg_dim, model_dims[model_idx][EmbeddingType.Entity])
-             for model_idx in range(0, num_models)]
+             for model_idx in range(num_models)]
         )
         self.relation_nets = nn.ModuleList(
             [OneToNet(config, self.entity_agg_dim, model_dims[model_idx][EmbeddingType.Relation])
-             for model_idx in range(0, num_models)]
+             for model_idx in range(num_models)]
         )
 
     def aggregate(self, target, indexes: Tensor = None):
@@ -404,7 +417,7 @@ class OneToN(AggregationBase):
 
     def penalty(self, **kwargs) -> List[Tensor]:
         result = super().penalty(**kwargs)
-        penalty_sum = torch.Tensor([0])
+        penalty_sum = torch.Tensor([0], device=self.config.get("job.device"))
         loss_fn = torch.nn.MSELoss()
 
         # fetch all original model embeddings for entities and relations
