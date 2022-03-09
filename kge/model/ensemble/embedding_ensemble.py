@@ -60,9 +60,9 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
         p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
         o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
-        s_emb = self.postprocess(s_emb)
-        p_emb = self.postprocess(p_emb)
-        o_emb = self.postprocess(o_emb)
+        s_emb = self._postprocess(s_emb)
+        p_emb = self._postprocess(p_emb)
+        o_emb = self._postprocess(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "spo")
         return scores
 
@@ -70,9 +70,9 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
         p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
         o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
-        s_emb = self.postprocess(s_emb)
-        p_emb = self.postprocess(p_emb)
-        o_emb = self.postprocess(o_emb)
+        s_emb = self._postprocess(s_emb)
+        p_emb = self._postprocess(p_emb)
+        o_emb = self._postprocess(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "sp_")
         return scores
 
@@ -80,9 +80,9 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
         p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
         o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
-        s_emb = self.postprocess(s_emb)
-        p_emb = self.postprocess(p_emb)
-        o_emb = self.postprocess(o_emb)
+        s_emb = self._postprocess(s_emb)
+        p_emb = self._postprocess(p_emb)
+        o_emb = self._postprocess(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "_po")
         return scores
 
@@ -90,9 +90,9 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
         p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
         o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
-        s_emb = self.postprocess(s_emb)
-        p_emb = self.postprocess(p_emb)
-        o_emb = self.postprocess(o_emb)
+        s_emb = self._postprocess(s_emb)
+        p_emb = self._postprocess(p_emb)
+        o_emb = self._postprocess(o_emb)
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "s_o")
         return scores
 
@@ -101,15 +101,15 @@ class EmbeddingEnsemble(Ensemble):
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
         p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
         o_emb = self.aggregation.aggregate(EmbeddingTarget.Object, o)
-        s_emb = self.postprocess(s_emb)
-        p_emb = self.postprocess(p_emb)
-        o_emb = self.postprocess(o_emb)
+        s_emb = self._postprocess(s_emb)
+        p_emb = self._postprocess(p_emb)
+        o_emb = self._postprocess(o_emb)
 
         # aggregate additional entity subset
         sub_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, entity_subset)
         obj_emb = self.aggregation.aggregate(EmbeddingTarget.Object, entity_subset)
-        sub_emb = self.postprocess(sub_emb)
-        obj_emb = self.postprocess(obj_emb)
+        sub_emb = self._postprocess(sub_emb)
+        obj_emb = self._postprocess(obj_emb)
 
         sp_scores = self.evaluator.score_emb(s_emb, p_emb, obj_emb, "sp_")
         po_scores = self.evaluator.score_emb(sub_emb, p_emb, o_emb, "_po")
@@ -117,8 +117,12 @@ class EmbeddingEnsemble(Ensemble):
         res = torch.cat((sp_scores, po_scores), dim=1)
         return res
 
-    def postprocess(self, embed: Tensor) -> Tensor:
+    def _postprocess(self, embed: Tensor) -> Tensor:
         if self.normalize_p > 0:
             with torch.no_grad():
                 embed = torch.nn.functional.normalize(embed, p=self.normalize_p, dim=1)
         return embed
+
+    def penalty(self, **kwargs) -> List[Tensor]:
+        result = super().penalty(**kwargs)
+
