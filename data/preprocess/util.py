@@ -361,8 +361,6 @@ def create_raw_dataset(
 
         # split train into train_base and train_ensemble
         split_ratio = 0.8
-        train_split = round(len(train_raw.data) * split_ratio)
-        valid_split = round(len(valid_raw.data) * split_ratio)
 
         train = Split(
             raw_split=train_raw,
@@ -382,7 +380,7 @@ def create_raw_dataset(
         train_base = RandomSubSplit(
             raw_split=train_raw,
             key="train_base",
-            split_ratio=0.8,
+            split_ratio=split_ratio,
             options={
                 "type": "triples",
                 "filename": "train_base.del",
@@ -394,7 +392,7 @@ def create_raw_dataset(
             key="train_ensemble",
             ref_split=train_base,
             options={
-                "type": "triple",
+                "type": "triples",
                 "filename": "train_ensemble.del",
                 "split_type": "train"
             }
@@ -431,7 +429,7 @@ def create_raw_dataset(
             key="valid_ensemble",
             ref_split=valid_base,
             options={
-                "type": "triple",
+                "type": "triples",
                 "filename": "valid_ensemble.del",
                 "split_type": "valid"
             }
