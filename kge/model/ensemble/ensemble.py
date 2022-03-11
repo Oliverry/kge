@@ -15,7 +15,7 @@ from kge.util import load_checkpoint
 class Ensemble(KgeModel):
     """
     Implementation of the Ensemble KGE model.
-    Creates no embedders.
+    Creates no embedders or scoring function
     Loads base model list used for the ensemble.
     """
 
@@ -41,14 +41,15 @@ class Ensemble(KgeModel):
             # check if all models use a single embedder for subjects and objects
             if not model.get_s_embedder() is model.get_o_embedder():
                 raise Exception(
-                    "Ensemble only support KGE models with the same s and o embedder. Exception: " + model_name
+                    "Ensemble only support KGE models with the same subject and object embedder. " +
+                    "This is not the case for " + model_name
                 )
             base_models.append(model)
         self.model_manager = ModelManager(self.config, base_models)
 
     def load_pretrained_model(self, model_name) -> KgeModel:
         """
-        The pretrained model has to be saved in the folder dataset/modelname
+        The pretrained model has to be stored in the folder local/pretraining/dataset_name/model_name
         :param model_name:
         :return:
         """
@@ -61,7 +62,7 @@ class Ensemble(KgeModel):
         else:
             raise Exception("Could not find pretrained model.")
 
-    def prepare_job(self, job: "Job", **kwargs):
+    def prepare_job(self, job: Job, **kwargs):
         from kge.job import TrainingOrEvaluationJob
 
         if isinstance(job, TrainingOrEvaluationJob):
