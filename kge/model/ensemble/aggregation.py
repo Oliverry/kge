@@ -417,7 +417,7 @@ class OneToN(AggregationBase):
 
     def penalty(self, **kwargs) -> List[Tensor]:
         result = super().penalty(**kwargs)
-        penalty_sum = torch.Tensor([0], device=self.config.get("job.device"))
+        penalty_sum = torch.tensor([0], device=self.config.get("job.device"))
         loss_fn = torch.nn.MSELoss()
 
         # fetch all original model embeddings for entities and relations

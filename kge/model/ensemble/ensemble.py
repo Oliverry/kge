@@ -44,7 +44,7 @@ class Ensemble(KgeModel):
                     "Ensemble only support KGE models with the same s and o embedder. Exception: " + model_name
                 )
             base_models.append(model)
-        self.model_manager = ModelManager(base_models)
+        self.model_manager = ModelManager(self.config, base_models)
 
     def load_pretrained_model(self, model_name) -> KgeModel:
         """

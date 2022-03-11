@@ -3,6 +3,7 @@ from typing import List, Dict
 import torch
 from torch import Tensor
 
+from kge import Config
 from kge.model import KgeModel, ReciprocalRelationsModel, RotatE
 from kge.model.ensemble.util import EmbeddingTarget, contains_model, EmbeddingType
 
@@ -58,14 +59,16 @@ def fetch_embedding(model: KgeModel, target: EmbeddingTarget, indexes: Tensor = 
 
 class ModelManager:
 
-    def __init__(self, models: List[KgeModel]):
+    def __init__(self, config: Config, models: List[KgeModel]):
         self.models = models
 
         # lookup model specific entity and relation sizes
         self.dims = {}
         for idx, model in enumerate(self.models):
-            entity_emb = fetch_embedding(model, EmbeddingTarget.Subject, torch.Tensor(0))
-            relation_emb = fetch_embedding(model, EmbeddingTarget.Predicate, torch.Tensor(0))
+            entity_emb = fetch_embedding(
+                model, EmbeddingTarget.Subject, torch.tensor([0], device=config.get("job.device")))
+            relation_emb = fetch_embedding(
+                model, EmbeddingTarget.Predicate, torch.tensor([0], device=config.get("job.device")))
             entity_dim = entity_emb.size()[1]
             relation_dim = relation_emb.size()[1]
             self.dims[idx] = {EmbeddingType.Entity: entity_dim, EmbeddingType.Relation: relation_dim}
