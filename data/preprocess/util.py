@@ -8,7 +8,6 @@ from typing import Any, Callable, Dict, List, Optional, Union, Iterable
 import yaml
 import os
 
-
 ### DEFAULT PREPROCESS UTILS ##########################################################
 
 
@@ -117,9 +116,9 @@ class FilteredSplit(Split):
             self.raw_split.field_map["O"],
         )
         if (
-                triple[S] in self.filter_with.entities
-                and triple[O] in self.filter_with.entities
-                and triple[P] in self.filter_with.relations
+            triple[S] in self.filter_with.entities
+            and triple[O] in self.filter_with.entities
+            and triple[P] in self.filter_with.relations
         ):
             super().process_triple(triple, entities, relations, **kwargs)
 
@@ -348,7 +347,7 @@ def default_parser():
 
 
 def create_raw_dataset(
-        train_raw, valid_raw, test_raw, args, create_splits=True
+    train_raw, valid_raw, test_raw, args, create_splits=True
 ) -> RawDataset:
     # read data and collect entity and relation maps
     raw_dataset: RawDataset = analyze_raw_splits(

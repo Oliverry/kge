@@ -134,7 +134,7 @@ class ModelManager:
         :return:
         """
         embeds = {}
-        for idx, model in enumerate(self.models):
+        for model_idx, model in enumerate(self.models):
             model_emb = fetch_embedding(model, target, indexes)
-            embeds[idx] = model_emb
+            embeds[model_idx] = model_emb
         return embeds

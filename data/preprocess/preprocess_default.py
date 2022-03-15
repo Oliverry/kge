@@ -47,4 +47,3 @@ if __name__ == "__main__":
     util.process_splits(raw_dataset)
     util.update_string_files(raw_dataset, args)
     util.write_dataset_yaml(raw_dataset.config, args.folder)
-

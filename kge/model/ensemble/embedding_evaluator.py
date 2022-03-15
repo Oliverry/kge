@@ -42,8 +42,8 @@ class KgeAdapter(EmbeddingEvaluator):
 
         # change embedding size to aggregated dimensions
         dim_options = {
-            self.configuration_key+".model.entity_embedder.dim": self.entity_dim,
-            self.configuration_key+".model.relation_embedder.dim": self.relation_dim
+            self.configuration_key + ".model.entity_embedder.dim": self.entity_dim,
+            self.configuration_key + ".model.relation_embedder.dim": self.relation_dim
         }
         self.config.load_options(dim_options, create=True)
 

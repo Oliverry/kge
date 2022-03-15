@@ -55,7 +55,7 @@ class EmbeddingEnsemble(Ensemble):
             raise Exception("Unknown evaluator: " + evaluator_option)
 
         # Start training of dimensionality reduction method
-        if config.get("job.type") == "train":
+        if not init_for_load_only:
             self.aggregation.train_aggregation()
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
