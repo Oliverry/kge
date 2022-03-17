@@ -1,0 +1,51 @@
+job.type: train
+dataset:
+  name: toy
+
+train:
+  type: negative_sampling
+  batch_size: 100
+  loss: kl
+  loss_arg: 4.0
+  max_epochs: 400
+  optimizer.default:
+    type: Adagrad
+    args:
+      lr: 0.1
+
+valid:
+  early_stopping.patience: 5
+  every: 5
+  metric: mean_reciprocal_rank_filtered_with_test
+
+model: embedding_ensemble
+
+embedding_ensemble:
+  base_models: [complex, distmult, conve, rotate]
+  aggregation: concat
+  evaluator: kge_adapter
+  normalize_p: 0.0
+
+pca:
+  entity_reduction: 0.1
+  relation_reduction: 0.1
+
+autoencoder_reduction:
+  epochs: 60
+  entity_reduction: 0.2
+  relation_reduction: 0.2
+
+autoencoder:
+  num_layers: 1
+
+import: [multilayer_perceptron]
+kge_adapter:
+  model:
+    type: multilayer_perceptron
+
+finetuning:
+  num_layers: 1
+
+oneton:
+  entity_reduction: 0.5
+  relation_reduction: 0.5

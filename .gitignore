@@ -1,10 +1,10 @@
 *__pycache__/
 .idea/
-local/*
-!local/README
-/data/*
-!data/*.sh
-!data/preprocess/
+local/experiments
+# !local/README
+# /data/*
+# !data/*.sh
+# !data/preprocess/
 /trace.csv
 *.csv
 *.pyc
