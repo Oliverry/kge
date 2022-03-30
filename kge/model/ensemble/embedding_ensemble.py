@@ -58,6 +58,10 @@ class EmbeddingEnsemble(Ensemble):
         if not init_for_load_only:
             self.aggregation.train_aggregation()
 
+        # TODO remove
+        if config.get("job.device") != "cpu":
+            print(torch.cuda.memory_summary())
+
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
         p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)

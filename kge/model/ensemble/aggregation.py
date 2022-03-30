@@ -201,6 +201,10 @@ class PcaReduction(AggregationBase):
         entity_embeds = concat_embeds(entity_embeds)
         relation_embeds = concat_embeds(relation_embeds)
 
+        # move to cpu for scikit-learn
+        entity_embeds = entity_embeds.to(torch.device("cpu"))
+        relation_embeds = relation_embeds.to(torch.device("cpu"))
+
         # prior standardization
         entity_embeds = StandardScaler().fit_transform(entity_embeds)
         relation_embeds = StandardScaler().fit_transform(relation_embeds)
@@ -234,8 +238,12 @@ class AutoencoderReduction(AggregationBase):
         for model_idx in range(self.model_manager.num_models()):
             entity_dim_in = embed_dims[model_idx][EmbeddingType.Entity]
             relation_dim_in = embed_dims[model_idx][EmbeddingType.Relation]
-            entity_autoencoders.append(Autoencoder(config, entity_dim_in, self.entity_agg_dim))
-            relation_autoencoders.append(Autoencoder(config, relation_dim_in, self.relation_agg_dim))
+            entity_ae = Autoencoder(config, entity_dim_in, self.entity_agg_dim)
+            entity_ae.to(config.get("job.device"))
+            entity_autoencoders.append(entity_ae)
+            relation_ae = Autoencoder(config, relation_dim_in, self.relation_agg_dim)
+            relation_ae.to(config.get("job.device"))
+            relation_autoencoders.append(relation_ae)
         self.entity_models = nn.ModuleList(entity_autoencoders)
         self.relation_models = nn.ModuleList(relation_autoencoders)
 
@@ -294,6 +302,7 @@ class AutoencoderReduction(AggregationBase):
         for epoch in range(self.epochs):
             loss_val = 0
             for _, batch in dataloader:
+                # encode and decode input
                 encoded_embeds = self.encode(e_type, batch)
                 target = self.decode(e_type, encoded_embeds)
 
