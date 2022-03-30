@@ -1,5 +1,0 @@
-scoring_ensemble:
-  class_name: ScoringEnsemble
-  base_models: [transe,complex]
-  evaluator: avg
-
