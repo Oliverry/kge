@@ -1,0 +1,7 @@
+kge_adapter:
+  model:
+    type: transe
+    +++: +++
+
+finetuning:
+  num_layers: 1

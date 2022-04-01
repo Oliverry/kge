@@ -1,0 +1,10 @@
+import: [aggregation, embedding_evaluator]
+
+embedding_ensemble:
+  class_name: EmbeddingEnsemble
+  base_models: [transe, complex]
+  aggregation: autoencoder
+  evaluator: kge_adapter
+  entity_agg_dim: -1
+  relation_agg_dim: -1
+  normalize_p: 2.0

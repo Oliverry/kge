@@ -1,0 +1,13 @@
+import: [lookup_embedder]
+
+semantic_matching_energy:
+  class_name: SemanticMatchingEnergy
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++
+  g_func: linear # alternative: bilinear
+  layer_dim: -1
+

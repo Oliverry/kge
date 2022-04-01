@@ -1,0 +1,12 @@
+import: [lookup_embedder]
+
+multilayer_perceptron:
+  class_name: MultilayerPerceptron
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++
+  layer_dim: -1
+
