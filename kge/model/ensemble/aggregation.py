@@ -38,10 +38,15 @@ def pad_embeds(embeds, padding_length):
     padded_embeds = {}
     for model_idx in embeds:
         model_embeds = embeds[model_idx]
-        last_dim = model_embeds.size()[1]
-        padded_embed = F.pad(input=model_embeds, pad=(0, padding_length - last_dim), mode='constant', value=0)
+        padded_embed = pad_embed(model_embeds, padding_length)
         padded_embeds[model_idx] = padded_embed
     return padded_embeds
+
+
+def pad_embed(embed, padding_length):
+    last_dim = embed.size()[1]
+    padded_embed = F.pad(input=embed, pad=(0, padding_length - last_dim), mode='constant', value=0)
+    return padded_embed
 
 
 def avg_embeds(embeds):
@@ -134,6 +139,7 @@ class Concatenation(AggregationBase):
     def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         t = self.model_manager.fetch_model_embeddings(target, indexes)
         res = concat_embeds(t)
+        res = pad_embed(res, self.entity_agg_dim)
         return res
 
     def train_aggregation(self):
@@ -436,7 +442,7 @@ class OneToN(AggregationBase):
 
     def penalty(self, **kwargs) -> List[Tensor]:
         result = super().penalty(**kwargs)
-        penalty_sum = torch.tensor([0], device=self.config.get("job.device"))
+        penalty_sum = torch.tensor([0], dtype=torch.float32, device=self.config.get("job.device"))
         loss_fn = torch.nn.MSELoss()
 
         # fetch all original model embeddings for entities and relations

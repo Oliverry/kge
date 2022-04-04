@@ -5,7 +5,7 @@ from torch import Tensor
 
 from kge import Config
 from kge.model import KgeModel, ReciprocalRelationsModel, RotatE
-from kge.model.ensemble.util import EmbeddingTarget, contains_model, EmbeddingType
+from kge.model.ensemble.util import EmbeddingTarget, contains_model
 
 
 def fetch_embedding(model: KgeModel, target: EmbeddingTarget, indexes: Tensor = None) -> Tensor:
