@@ -479,8 +479,11 @@ class OneToNet(nn.Module, Configurable):
     def __init__(self, config: Config, dim_in, dim_out):
         super(OneToNet, self).__init__()
         Configurable.__init__(self, config, "onetonet")
+        dropout = self.get_option("dropout")
         self.layer = nn.Linear(dim_in, dim_out, bias=False)
+        self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, x):
+        x = self.dropout(x)
         x = self.layer(x)
         return x

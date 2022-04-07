@@ -14,6 +14,8 @@ class SmeScorer(RelationalScorer):
         relation_dim = self.get_option("relation_embedder.dim")
         self.g_func = self.get_option("g_func")
         layer_dim = self.get_option("layer_dim")
+        dropout = self.get_option("dropout")
+        self.dropout = torch.nn.Dropout(dropout)
         if layer_dim < 0:
             layer_dim = entity_dim
         if self.g_func == "linear":
@@ -30,7 +32,9 @@ class SmeScorer(RelationalScorer):
         if combine == "spo":
             if self.g_func == "linear":
                 sp_embed = torch.cat((s_emb, p_emb), 1)
+                sp_embed = self.dropout(sp_embed)
                 po_embed = torch.cat((p_emb, o_emb), 1)
+                po_embed = self.dropout(po_embed)
                 sp_embed = self.sp_linear(sp_embed)
                 po_embed = self.po_linear(po_embed)
             elif self.g_func == "bilinear":
@@ -45,7 +49,9 @@ class SmeScorer(RelationalScorer):
                 o_emb_rep = o_emb_single.repeat((n, 1))
                 if self.g_func == "linear":
                     sp_embed = torch.cat((s_emb, p_emb), 1)
+                    sp_embed = self.dropout(sp_embed)
                     po_embed = torch.cat((p_emb, o_emb_rep), 1)
+                    po_embed = self.dropout(po_embed)
                     sp_embed = self.sp_linear(sp_embed)
                     po_embed = self.po_linear(po_embed)
                 elif self.g_func == "bilinear":
@@ -62,7 +68,9 @@ class SmeScorer(RelationalScorer):
                 s_emb_rep = s_emb_single.repeat((n, 1))
                 if self.g_func == "linear":
                     sp_embed = torch.cat((s_emb_rep, p_emb), 1)
+                    sp_embed = self.dropout(sp_embed)
                     po_embed = torch.cat((p_emb, o_emb), 1)
+                    po_embed = self.dropout(po_embed)
                     sp_embed = self.sp_linear(sp_embed)
                     po_embed = self.po_linear(po_embed)
                 elif self.g_func == "bilinear":

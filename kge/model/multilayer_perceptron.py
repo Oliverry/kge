@@ -16,6 +16,8 @@ class MultiLayerPerceptronScorer(RelationalScorer):
         layer_dim = self.get_option("layer_dim")
         if layer_dim < 0:
             layer_dim = entity_dim
+        dropout = self.get_option("dropout")
+        self.dropout = torch.nn.Dropout(dropout)
         self.linear1 = nn.Linear(dim_in, layer_dim)
         self.tanh = nn.Tanh()
         self.linear2 = nn.Linear(layer_dim, 1)
@@ -23,6 +25,7 @@ class MultiLayerPerceptronScorer(RelationalScorer):
 
     def score_emb_spo(self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor) -> Tensor:
         embeds = torch.cat((s_emb, p_emb, o_emb), 1)
+        embeds = self.dropout(embeds)
         embeds = self.linear1(embeds)
         embeds = self.tanh(embeds)
         embeds = self.linear2(embeds)
@@ -33,6 +36,7 @@ class MultiLayerPerceptronScorer(RelationalScorer):
         n = p_emb.size(0)
         if combine == "spo":
             embeds = torch.cat((s_emb, p_emb, o_emb), 1)
+            embeds = self.dropout(embeds)
             embeds = self.linear1(embeds)
             embeds = self.tanh(embeds)
             embeds = self.linear2(embeds)
@@ -42,6 +46,7 @@ class MultiLayerPerceptronScorer(RelationalScorer):
             for o_emb_single in o_emb:
                 o_emb_rep = o_emb_single.repeat((n, 1))
                 embeds = torch.cat((s_emb, p_emb, o_emb_rep), 1)
+                embeds = self.dropout(embeds)
                 embeds = self.linear1(embeds)
                 embeds = self.tanh(embeds)
                 embeds = self.linear2(embeds)
@@ -53,6 +58,7 @@ class MultiLayerPerceptronScorer(RelationalScorer):
             for s_emb_single in s_emb:
                 s_emb_rep = s_emb_single.repeat((n, 1))
                 embeds = torch.cat((s_emb_rep, p_emb, o_emb), 1)
+                embeds = self.dropout(embeds)
                 embeds = self.linear1(embeds)
                 embeds = self.tanh(embeds)
                 embeds = self.linear2(embeds)

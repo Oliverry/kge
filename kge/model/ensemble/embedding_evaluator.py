@@ -80,10 +80,13 @@ class FineTuning(EmbeddingEvaluator):
         EmbeddingEvaluator.__init__(self, config, "finetuning", parent_configuration_key)
 
         num_layers = self.get_option("num_layers")
+        dropout = self.get_option("dropout")
 
         i = 0
         entity_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
+            entity_nn_dict[str(i) + "-dropout"] = nn.Dropout(p=self.dropout)
+            i += 1
             entity_nn_dict[str(i) + "-linear"] = nn.Linear(self.entity_dim, self.entity_dim)
             i += 1
             if idx + 1 < num_layers:
@@ -93,6 +96,8 @@ class FineTuning(EmbeddingEvaluator):
 
         relation_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
+            relation_nn_dict[str(i) + "-dropout"] = nn.Dropout(p=self.dropout)
+            i += 1
             relation_nn_dict[str(i) + "-linear"] = nn.Linear(self.relation_dim, self.relation_dim)
             i += 1
             if idx + 1 < num_layers:

@@ -10,4 +10,5 @@ semantic_matching_energy:
     +++: +++
   g_func: linear # alternative: bilinear
   layer_dim: -1
+  dropout: 0.0
 
