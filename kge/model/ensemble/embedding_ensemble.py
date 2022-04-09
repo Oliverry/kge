@@ -54,13 +54,11 @@ class EmbeddingEnsemble(Ensemble):
         else:
             raise Exception("Unknown evaluator: " + evaluator_option)
 
-        # Start training of dimensionality reduction method
+        # Start training of dimensionality reduction method if available
         if not init_for_load_only:
+            self.aggregation.train()
             self.aggregation.train_aggregation()
-
-        # TODO remove
-        # if config.get("job.device") != "cpu":
-        #    print(torch.cuda.memory_summary())
+        self.aggregation.eval()
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)

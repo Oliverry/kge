@@ -1,14 +1,12 @@
-import: [lookup_embedder]
-
 pca:
   entity_reduction: 0.5
   relation_reduction: 0.5
 
 autoencoder_reduction:
-  epochs: 10
-  lr: 1e-1
+  epochs: 400
+  lr: 0.1
   batch_size: 64
-  weight_decay: 1e-8
+  patience: 5
   entity_reduction: 0.5
   relation_reduction: 0.5
 

@@ -1,3 +1,4 @@
+import sys
 from collections import OrderedDict
 from typing import List, Dict
 
@@ -246,7 +247,7 @@ class AutoencoderReduction(AggregationBase):
         self.epochs = self.get_option("epochs")
         self.lr = self.get_option("lr")
         self.batch_size = self.get_option("batch_size")
-        self.weight_decay = self.get_option("weight_decay")
+        self.patience = self.get_option("patience")
 
         # create autoencoders
         entity_autoencoders = []
@@ -299,25 +300,32 @@ class AutoencoderReduction(AggregationBase):
         return decoded
 
     def train_aggregation(self):
-        print("Training entity autoencoder")
+        self.config.log("Training entity autoencoder")
         self.train_model(EmbeddingType.Entity, self.entity_models)
 
-        print("Training relation autoencoder")
+        self.config.log("Training relation autoencoder")
         self.train_model(EmbeddingType.Relation, self.relation_models)
 
-        print("Completed aggregation training.")
+        self.config.log("Completed aggregation training.")
 
     def train_model(self, e_type: EmbeddingType, model):
-        model.train()
         # create dataloader
-        dataloader = create_aggregation_dataloader(self.model_manager, e_type, 50, True)
-        # validation using MSE Loss function
+        dataloader_train, dataloader_valid = create_aggregation_dataloader(
+            self.model_manager, e_type, 0.8, self.batch_size, True
+        )
+        # using MSE Loss function
         loss_function = torch.nn.MSELoss()
         # using an Adam Optimizer
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        optimizer = torch.optim.Adagrad(model.parameters(), lr=self.lr)
+
+        # Early stopping
+        last_loss = sys.maxsize
+        trigger_times = 0
+
         for epoch in range(self.epochs):
+            model.train()
             loss_val = 0
-            for _, batch in dataloader:
+            for _, batch in dataloader_train:
                 # encode and decode input
                 encoded_embeds = self.encode(e_type, batch)
                 target = self.decode(e_type, encoded_embeds)
@@ -337,7 +345,44 @@ class AutoencoderReduction(AggregationBase):
                 optimizer.step()
                 loss_val += loss.item()
 
-            self.config.log("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, self.epochs, loss_val))
+            # Early stopping
+            current_loss = self.validate(model, e_type, dataloader_valid, loss_function)
+
+            if current_loss > last_loss:
+                trigger_times += 1
+                if trigger_times >= self.patience:
+                    return
+            else:
+                trigger_times = 0
+            last_loss = current_loss
+
+            self.config.log("epoch : {}/{}, loss = {:.6f}, valid = {:.6f}".
+                            format(epoch + 1, self.epochs, loss_val, current_loss))
+
+    def validate(self, model, e_type, dataloader_valid, loss_function):
+        model.eval()
+        loss_total = 0
+
+        # Test validation data
+        with torch.no_grad():
+            for _, batch in dataloader_valid:
+                # encode and decode input
+                encoded_embeds = self.encode(e_type, batch)
+                target = self.decode(e_type, encoded_embeds)
+
+                max_emb = 0
+                for value in batch.values():
+                    max_emb = max(max_emb, value.size()[1])
+
+                emb_in = pad_embeds(batch, max_emb)
+                emb_in = concat_embeds(emb_in)
+                emb_out = pad_embeds(target, max_emb)
+                emb_out = concat_embeds(emb_out)
+
+                loss = loss_function(emb_in, emb_out)
+                loss_total += loss.item()
+
+        return loss_total / len(dataloader_valid)
 
 
 class Autoencoder(nn.Module, Configurable):
