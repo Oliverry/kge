@@ -66,7 +66,7 @@ class LiteraleDistmult(KgeModel):
             init_for_load_only=init_for_load_only,
         )
         entity_dim = self.get_option("entity_embedder.dim")
-        num_lit = dataset.get_option("num_literals")
+        num_lit = dataset.get_option("num_numerical_literals")
         self.gru = Gate(entity_dim + num_lit, entity_dim)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
@@ -75,8 +75,8 @@ class LiteraleDistmult(KgeModel):
         o_emb = self.get_o_embedder().embed(o)
 
         # enrich embeddings with literal information
-        s_literals = self.dataset.load_literal_emb(s)
-        o_literals = self.dataset.load_literal_emb(o)
+        s_literals = self.dataset.load_numerical_literal_emb(s)
+        o_literals = self.dataset.load_numerical_literal_emb(o)
         s_emb = self.gru(s_emb, s_literals)
         o_emb = self.gru(o_emb, o_literals)
 
@@ -91,8 +91,8 @@ class LiteraleDistmult(KgeModel):
             o_emb = self.get_o_embedder().embed(o)
 
         # enrich embeddings with literal information
-        s_literals = self.dataset.load_literal_emb(s)
-        o_literals = self.dataset.load_literal_emb(o)
+        s_literals = self.dataset.load_numerical_literal_emb(s)
+        o_literals = self.dataset.load_numerical_literal_emb(o)
         s_emb = self.gru(s_emb, s_literals)
         o_emb = self.gru(o_emb, o_literals)
 
@@ -107,8 +107,8 @@ class LiteraleDistmult(KgeModel):
         p_emb = self.get_p_embedder().embed(p)
 
         # enrich embeddings with literal information
-        s_literals = self.dataset.load_literal_emb(s)
-        o_literals = self.dataset.load_literal_emb(o)
+        s_literals = self.dataset.load_numerical_literal_emb(s)
+        o_literals = self.dataset.load_numerical_literal_emb(o)
         s_emb = self.gru(s_emb, s_literals)
         o_emb = self.gru(o_emb, o_literals)
 
@@ -123,8 +123,8 @@ class LiteraleDistmult(KgeModel):
             p_emb = self.get_p_embedder().embed(p)
 
         # enrich embeddings with literal information
-        s_literals = self.dataset.load_literal_emb(s)
-        o_literals = self.dataset.load_literal_emb(o)
+        s_literals = self.dataset.load_numerical_literal_emb(s)
+        o_literals = self.dataset.load_numerical_literal_emb(o)
         s_emb = self.gru(s_emb, s_literals)
         o_emb = self.gru(o_emb, o_literals)
 
@@ -138,19 +138,19 @@ class LiteraleDistmult(KgeModel):
         o_emb = self.get_o_embedder().embed(o)
 
         # enrich embeddings with literal information
-        s_literals = self.dataset.load_literal_emb(s)
-        o_literals = self.dataset.load_literal_emb(o)
+        s_literals = self.dataset.load_numerical_literal_emb(s)
+        o_literals = self.dataset.load_numerical_literal_emb(o)
         s_emb = self.gru(s_emb, s_literals)
         o_emb = self.gru(o_emb, o_literals)
 
         if self.get_s_embedder() is self.get_o_embedder():
             if entity_subset is not None:
                 all_entities = self.get_s_embedder().embed(entity_subset)
-                all_entities_literals = self.dataset.load_literal_emb(entity_subset)
+                all_entities_literals = self.dataset.load_numerical_literal_emb(entity_subset)
                 all_entities = self.gru(all_entities, all_entities_literals)
             else:
                 all_entities = self.get_s_embedder().embed_all()
-                all_entities_literals = self.dataset.load_literal_emb()
+                all_entities_literals = self.dataset.load_numerical_literal_emb()
                 all_entities = self.gru(all_entities, all_entities_literals)
             sp_scores = self._scorer.score_emb(s_emb, p_emb, all_entities, combine="sp_")
             po_scores = self._scorer.score_emb(all_entities, p_emb, o_emb, combine="_po")
@@ -158,16 +158,16 @@ class LiteraleDistmult(KgeModel):
             if entity_subset is not None:
                 all_objects = self.get_o_embedder().embed(entity_subset)
                 all_subjects = self.get_s_embedder().embed(entity_subset)
-                all_objects_literals = self.dataset.load_literal_emb(entity_subset)
+                all_objects_literals = self.dataset.load_numerical_literal_emb(entity_subset)
                 all_objects = self.gru(all_objects, all_objects_literals)
-                all_subjects_literals = self.dataset.load_literal_emb(entity_subset)
+                all_subjects_literals = self.dataset.load_numerical_literal_emb(entity_subset)
                 all_subjects = self.gru(all_subjects, all_subjects_literals)
             else:
                 all_objects = self.get_o_embedder().embed_all()
                 all_subjects = self.get_s_embedder().embed_all()
-                all_objects_literals = self.dataset.load_literal_emb()
+                all_objects_literals = self.dataset.load_numerical_literal_emb()
                 all_objects = self.gru(all_objects, all_objects_literals)
-                all_subjects_literals = self.dataset.load_literal_emb()
+                all_subjects_literals = self.dataset.load_numerical_literal_emb()
                 all_subjects = self.gru(all_subjects, all_subjects_literals)
             sp_scores = self._scorer.score_emb(s_emb, p_emb, all_objects, combine="sp_")
             po_scores = self._scorer.score_emb(all_subjects, p_emb, o_emb, combine="_po")

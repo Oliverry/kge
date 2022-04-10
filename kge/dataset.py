@@ -66,7 +66,8 @@ class Dataset(Configurable):
         self._indexes: Dict[str, Any] = {}
 
         #: literal vector for each entity
-        self._literals = None
+        self._numerical_literals = None
+        self._textual_literals = None
 
         #: functions that compute and add indexes as needed; arguments are dataset and
         #: key. Index functions are expected to not recompute an index that is already
@@ -123,7 +124,8 @@ class Dataset(Configurable):
                 if source != split:
                     config.options["dataset"]["files"][split] = config.options["dataset"]["files"][source]
                 dataset.split(split)
-            dataset.load_literals()
+            dataset.load_numerical_literals()
+            dataset.load_textual_literals()
         return dataset
 
     @staticmethod
@@ -581,10 +583,10 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         map_ = self.load_map(key, as_list=True)
         return Dataset._map_indexes(indexes, map_)
 
-    def load_literals(self):
-        if self._literals is None and self.config.exists(f"dataset.files.literals"):
-            self.ensure_available("literals")
-            filename = self.config.get(f"dataset.files.literals.filename")
+    def load_numerical_literals(self):
+        if self._numerical_literals is None and self.config.exists(f"dataset.files.numerical_literals"):
+            self.ensure_available("numerical_literals")
+            filename = self.config.get(f"dataset.files.numerical_literals.filename")
 
             # load literals
             filepath = os.path.join(self.folder, filename)
@@ -594,7 +596,7 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
             )
             triples = triples.to_numpy()
             triples = torch.from_numpy(triples)
-            self.config.log(f"Loaded {len(triples)} literals")
+            self.config.log(f"Loaded {len(triples)} numerical literals")
 
             literal_dict = {}
             num_entities = self.config.get(f"dataset.num_entities")
@@ -611,20 +613,52 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
             num_literal_relations += 1
 
             # create literal information
-            self._literals = torch.zeros(num_entities, int(num_literal_relations))
-            self.config.set("dataset.num_literals", int(num_literal_relations))
+            self._numerical_literals = torch.zeros(num_entities, int(num_literal_relations))
+            self.config.set("dataset.num_numerical_literals", int(num_literal_relations))
 
             # add literal information to _literals
             for entity_id, literals in literal_dict.items():
                 for rel_id, literal in literals.items():
-                    self._literals[entity_id][rel_id] = literal
+                    self._numerical_literals[entity_id][rel_id] = literal
 
-            self._literals = normalize(self._literals, p=2.0, dim=0)
-            self._literals = self._literals.to(self.config.get("job.device"))
+            self._numerical_literals = normalize(self._numerical_literals, p=2.0, dim=0)
+            self._numerical_literals = self._numerical_literals.to(self.config.get("job.device"))
 
-    def load_literal_emb(self, indexes: Tensor = None):
+    def load_numerical_literal_emb(self, indexes: Tensor = None):
         if indexes is None:
-            res = self._literals
+            res = self._numerical_literals
         else:
-            res = torch.index_select(self._literals, 0, indexes.long())
+            res = torch.index_select(self._numerical_literals, 0, indexes.long())
         return res
+
+    def load_textual_literals(self):
+        if self._textual_literals is None and self.config.exists(f"dataset.files.textual_literals"):
+            self.ensure_available("textual_literals")
+            filename = self.config.get(f"dataset.files.textual_literals.filename")
+
+            # load literals
+            filepath = os.path.join(self.folder, filename)
+            tuples = pd.read_csv(
+                filepath, sep="\t", dtype={'x1': np.int, 'x2': np.str}, header=None,
+            )
+
+            # create and fill dict with empty default strings
+            self._textual_literals = {}
+            num_entities = self.config.get(f"dataset.num_entities")
+            for entity_idx in range(num_entities):
+                self._textual_literals[entity_idx] = ""
+
+            # add strings from file to dict
+            tuples_list = tuples.values.tolist()
+            for entry in tuples_list:
+                entity_idx = entry[0]
+                entity_desc = entry[1]
+                self._textual_literals[entity_idx] = entity_desc
+
+            self.config.log(f"Loaded {len(tuples_list)} textual literals")
+
+    def load_textual_description(self, index):
+        if index in self._textual_literals:
+            return self._textual_literals[index]
+        else:
+            raise ValueError

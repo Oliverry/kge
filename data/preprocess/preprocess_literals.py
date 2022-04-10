@@ -64,7 +64,7 @@ def process_numerical_literals(folder):
         with open(config_file_path, "r+") as file:
             try:
                 config = yaml.safe_load(file)
-                config["dataset"]["files.numerical_literals.filename"] = "literals.del"
+                config["dataset"]["files.numerical_literals.filename"] = "numerical_literals.del"
                 config["dataset"]["files.numerical_literals.type"] = "triples"
                 config["dataset"]["files.numerical_literals.size"] = num_literals
                 file.seek(0)
