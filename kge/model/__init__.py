@@ -20,6 +20,7 @@ from kge.model.simple import SimplE
 from kge.model.multilayer_perceptron import MultilayerPerceptron
 from kge.model.semantic_matching_energy import SemanticMatchingEnergy
 from kge.model.literale_distmult import LiteraleDistmult
+from kge.model.dklr import DKLR
 
 # meta models
 from kge.model.reciprocal_relations_model import ReciprocalRelationsModel
