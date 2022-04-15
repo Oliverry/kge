@@ -1,6 +1,6 @@
 *__pycache__/
 .idea/
-local/
+local/*
 !local/README
 /data/*
 !data/*.sh
