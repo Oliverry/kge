@@ -1,4 +1,0 @@
-ranking_ensemble:
-  class_name: RankingEnsemble
-  base_models: [transe,complex]
-  evaluator: avg

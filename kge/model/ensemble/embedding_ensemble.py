@@ -6,7 +6,7 @@ from torch import Tensor
 
 from kge import Config, Dataset
 from kge.model import Ensemble
-from kge.model.ensemble.aggregation import AutoencoderReduction, Concatenation, OneToN, PcaReduction, MeanReduction
+from kge.model.ensemble.aggregation import AutoencoderReduction, Concat, OneToN, PcaReduction, MeanReduction
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 from kge.model.ensemble.model_manager import EmbeddingTarget
 
@@ -34,7 +34,7 @@ class EmbeddingEnsemble(Ensemble):
         aggregation_option = self.get_option("aggregation")
         evaluator_option = self.get_option("evaluator")
         if aggregation_option == "concat":
-            self.aggregation = Concatenation(self.model_manager, config, self.configuration_key)
+            self.aggregation = Concat(self.model_manager, config, self.configuration_key)
         elif aggregation_option == "mean":
             self.aggregation = MeanReduction(self.model_manager, config, self.configuration_key)
         elif aggregation_option == "pca":

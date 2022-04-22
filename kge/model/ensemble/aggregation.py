@@ -132,7 +132,7 @@ class AggregationBase(nn.Module, Configurable):
         return []
 
 
-class Concatenation(AggregationBase):
+class Concat(AggregationBase):
 
     def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
         AggregationBase.__init__(self, model_manager, config, "concat", parent_configuration_key)

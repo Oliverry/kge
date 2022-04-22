@@ -26,4 +26,3 @@ from kge.model.reciprocal_relations_model import ReciprocalRelationsModel
 from kge.model.ensemble.ensemble import Ensemble
 from kge.model.ensemble.scoring_ensemble import ScoringEnsemble
 from kge.model.ensemble.embedding_ensemble import EmbeddingEnsemble
-from kge.model.ensemble.ranking_ensemble import RankingEnsemble
