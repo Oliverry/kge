@@ -10,7 +10,7 @@ from collections import defaultdict
 
 
 class EntityRankingJob(EvaluationJob):
-    """ Entity ranking evaluation protocol """
+    """Entity ranking evaluation protocol"""
 
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
@@ -467,7 +467,11 @@ class EntityRankingJob(EvaluationJob):
 
         # update trace with results
         self.current_trace["epoch"].update(
-            dict(epoch_time=epoch_time, event="eval_completed", **metrics,)
+            dict(
+                epoch_time=epoch_time,
+                event="eval_completed",
+                **metrics,
+            )
         )
 
     def _densify_chunk_of_labels(
@@ -523,22 +527,22 @@ class EntityRankingJob(EvaluationJob):
         s_true_scores: torch.Tensor,
     ):
         """Filters the current examples with the given labels and returns counts rank and
-num_ties for each true score.
+        num_ties for each true score.
 
-        :param scores_sp: batch_size x chunk_size tensor of scores
+                :param scores_sp: batch_size x chunk_size tensor of scores
 
-        :param scores_po: batch_size x chunk_size tensor of scores
+                :param scores_po: batch_size x chunk_size tensor of scores
 
-        :param labels: batch_size x 2*chunk_size tensor of scores
+                :param labels: batch_size x 2*chunk_size tensor of scores
 
-        :param o_true_scores: batch_size x 1 tensor containing the scores of the actual
-        objects in batch
+                :param o_true_scores: batch_size x 1 tensor containing the scores of the actual
+                objects in batch
 
-        :param s_true_scores: batch_size x 1 tensor containing the scores of the actual
-        subjects in batch
+                :param s_true_scores: batch_size x 1 tensor containing the scores of the actual
+                subjects in batch
 
-        :return: batch_size x 1 tensors rank and num_ties for s and o and filtered
-        scores_sp and scores_po
+                :return: batch_size x 1 tensors rank and num_ties for s and o and filtered
+                scores_sp and scores_po
 
         """
         chunk_size = scores_sp.shape[1]

@@ -4,7 +4,10 @@ from typing import List, Union
 
 
 def get_sp_po_coords_from_spo_batch(
-    batch: Union[Tensor, List[Tensor]], num_entities: int, sp_index: dict, po_index: dict
+    batch: Union[Tensor, List[Tensor]],
+    num_entities: int,
+    sp_index: dict,
+    po_index: dict,
 ) -> torch.Tensor:
     """Given a set of triples , lookup matches for (s,p,?) and (?,p,o).
 
@@ -19,12 +22,7 @@ def get_sp_po_coords_from_spo_batch(
     sp_coords = sp_index.get_all(batch[:, [0, 1]])
     po_coords = po_index.get_all(batch[:, [1, 2]])
     po_coords[:, 1] += num_entities
-    coords = torch.cat(
-        (
-            sp_coords,
-            po_coords
-        )
-    )
+    coords = torch.cat((sp_coords, po_coords))
 
     return coords
 

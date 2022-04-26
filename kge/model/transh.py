@@ -108,7 +108,7 @@ class TransH(KgeModel):
     def penalty(self, **kwargs) -> List[Tensor]:
         penalty_super = super().penalty(**kwargs)
 
-        if self.soft_constraint_weight > 0.:
+        if self.soft_constraint_weight > 0.0:
             # entity penalty
             p_ent = F.relu(
                 torch.norm(self._entity_embedder.embed_all(), dim=1) ** 2.0 - 1.0
@@ -129,7 +129,7 @@ class TransH(KgeModel):
                         / (torch.norm(rel_emb, dim=1) + eps)
                     )
                     ** 2
-                    - eps ** 2
+                    - eps**2
                 )
             )
 

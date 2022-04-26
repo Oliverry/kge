@@ -122,7 +122,9 @@ class Dataset(Configurable):
             for split in ["train", "valid", "test"]:
                 source = config.get("dataset.files." + split + ".source")
                 if source != split:
-                    config.options["dataset"]["files"][split] = config.options["dataset"]["files"][source]
+                    config.options["dataset"]["files"][split] = config.options[
+                        "dataset"
+                    ]["files"][source]
                 dataset.split(split)
             dataset.load_numerical_literals()
             dataset.load_textual_literals()
@@ -584,15 +586,20 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return Dataset._map_indexes(indexes, map_)
 
     def load_numerical_literals(self):
-        if self._numerical_literals is None and self.config.exists(f"dataset.files.numerical_literals"):
+        if self._numerical_literals is None and self.config.exists(
+            f"dataset.files.numerical_literals"
+        ):
             self.ensure_available("numerical_literals")
             filename = self.config.get(f"dataset.files.numerical_literals.filename")
 
             # load literals
             filepath = os.path.join(self.folder, filename)
             triples = pd.read_csv(
-                filepath, sep="\t", dtype={'x1': np.int, 'x2': np.int, 'x3': np.single}, header=None,
-                usecols=range(0, 3)
+                filepath,
+                sep="\t",
+                dtype={"x1": np.int, "x2": np.int, "x3": np.single},
+                header=None,
+                usecols=range(0, 3),
             )
             triples = triples.to_numpy()
             triples = torch.from_numpy(triples)
@@ -613,8 +620,12 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
             num_literal_relations += 1
 
             # create literal information
-            self._numerical_literals = torch.zeros(num_entities, int(num_literal_relations))
-            self.config.set("dataset.num_numerical_literals", int(num_literal_relations))
+            self._numerical_literals = torch.zeros(
+                num_entities, int(num_literal_relations)
+            )
+            self.config.set(
+                "dataset.num_numerical_literals", int(num_literal_relations)
+            )
 
             # add literal information to _literals
             for entity_id, literals in literal_dict.items():
@@ -622,7 +633,9 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
                     self._numerical_literals[entity_id][rel_id] = literal
 
             self._numerical_literals = normalize(self._numerical_literals, p=2.0, dim=0)
-            self._numerical_literals = self._numerical_literals.to(self.config.get("job.device"))
+            self._numerical_literals = self._numerical_literals.to(
+                self.config.get("job.device")
+            )
 
     def load_numerical_literal_emb(self, indexes: Tensor = None):
         if indexes is None:
@@ -632,14 +645,19 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return res
 
     def load_textual_literals(self):
-        if self._textual_literals is None and self.config.exists(f"dataset.files.textual_literals"):
+        if self._textual_literals is None and self.config.exists(
+            f"dataset.files.textual_literals"
+        ):
             self.ensure_available("textual_literals")
             filename = self.config.get(f"dataset.files.textual_literals.filename")
 
             # load literals
             filepath = os.path.join(self.folder, filename)
             tuples = pd.read_csv(
-                filepath, sep="\t", dtype={'x1': np.int, 'x2': np.str}, header=None,
+                filepath,
+                sep="\t",
+                dtype={"x1": np.int, "x2": np.str},
+                header=None,
             )
 
             # create and fill dict with empty default strings

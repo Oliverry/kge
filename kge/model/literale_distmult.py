@@ -7,7 +7,6 @@ from kge.model.kge_model import RelationalScorer
 
 
 class Gate(nn.Module):
-
     def __init__(self, input_size, output_size):
         super(Gate, self).__init__()
         self.output_size = output_size
@@ -52,11 +51,11 @@ class LiteraleDistmult(KgeModel):
     r"""Implementation of the LiteralE-DistMult KGE model."""
 
     def __init__(
-            self,
-            config: Config,
-            dataset: Dataset,
-            configuration_key=None,
-            init_for_load_only=False,
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
     ):
         super().__init__(
             config=config,
@@ -131,7 +130,7 @@ class LiteraleDistmult(KgeModel):
         return self._scorer.score_emb(s_emb, p_emb, o_emb, combine="s_o")
 
     def score_sp_po(
-            self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
+        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
     ) -> Tensor:
         s_emb = self.get_s_embedder().embed(s)
         p_emb = self.get_p_embedder().embed(p)
@@ -146,21 +145,31 @@ class LiteraleDistmult(KgeModel):
         if self.get_s_embedder() is self.get_o_embedder():
             if entity_subset is not None:
                 all_entities = self.get_s_embedder().embed(entity_subset)
-                all_entities_literals = self.dataset.load_numerical_literal_emb(entity_subset)
+                all_entities_literals = self.dataset.load_numerical_literal_emb(
+                    entity_subset
+                )
                 all_entities = self.gru(all_entities, all_entities_literals)
             else:
                 all_entities = self.get_s_embedder().embed_all()
                 all_entities_literals = self.dataset.load_numerical_literal_emb()
                 all_entities = self.gru(all_entities, all_entities_literals)
-            sp_scores = self._scorer.score_emb(s_emb, p_emb, all_entities, combine="sp_")
-            po_scores = self._scorer.score_emb(all_entities, p_emb, o_emb, combine="_po")
+            sp_scores = self._scorer.score_emb(
+                s_emb, p_emb, all_entities, combine="sp_"
+            )
+            po_scores = self._scorer.score_emb(
+                all_entities, p_emb, o_emb, combine="_po"
+            )
         else:
             if entity_subset is not None:
                 all_objects = self.get_o_embedder().embed(entity_subset)
                 all_subjects = self.get_s_embedder().embed(entity_subset)
-                all_objects_literals = self.dataset.load_numerical_literal_emb(entity_subset)
+                all_objects_literals = self.dataset.load_numerical_literal_emb(
+                    entity_subset
+                )
                 all_objects = self.gru(all_objects, all_objects_literals)
-                all_subjects_literals = self.dataset.load_numerical_literal_emb(entity_subset)
+                all_subjects_literals = self.dataset.load_numerical_literal_emb(
+                    entity_subset
+                )
                 all_subjects = self.gru(all_subjects, all_subjects_literals)
             else:
                 all_objects = self.get_o_embedder().embed_all()
@@ -170,5 +179,7 @@ class LiteraleDistmult(KgeModel):
                 all_subjects_literals = self.dataset.load_numerical_literal_emb()
                 all_subjects = self.gru(all_subjects, all_subjects_literals)
             sp_scores = self._scorer.score_emb(s_emb, p_emb, all_objects, combine="sp_")
-            po_scores = self._scorer.score_emb(all_subjects, p_emb, o_emb, combine="_po")
+            po_scores = self._scorer.score_emb(
+                all_subjects, p_emb, o_emb, combine="_po"
+            )
         return torch.cat((sp_scores, po_scores), dim=1)

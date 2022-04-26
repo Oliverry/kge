@@ -6,19 +6,24 @@ from torch import Tensor
 
 from kge import Config, Dataset
 from kge.model import Ensemble
-from kge.model.ensemble.aggregation import AutoencoderReduction, Concat, OneToN, PcaReduction, MeanReduction
+from kge.model.ensemble.aggregation import (
+    AutoencoderReduction,
+    Concat,
+    OneToN,
+    PcaReduction,
+    MeanReduction,
+)
 from kge.model.ensemble.embedding_evaluator import KgeAdapter, FineTuning
 from kge.model.ensemble.model_manager import EmbeddingTarget
 
 
 class EmbeddingEnsemble(Ensemble):
-
     def __init__(
-            self,
-            config: Config,
-            dataset: Dataset,
-            configuration_key=None,
-            init_for_load_only=False,
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
     ):
         super().__init__(
             config=config,
@@ -34,15 +39,25 @@ class EmbeddingEnsemble(Ensemble):
         aggregation_option = self.get_option("aggregation")
         evaluator_option = self.get_option("evaluator")
         if aggregation_option == "concat":
-            self.aggregation = Concat(self.model_manager, config, self.configuration_key)
+            self.aggregation = Concat(
+                self.model_manager, config, self.configuration_key
+            )
         elif aggregation_option == "mean":
-            self.aggregation = MeanReduction(self.model_manager, config, self.configuration_key)
+            self.aggregation = MeanReduction(
+                self.model_manager, config, self.configuration_key
+            )
         elif aggregation_option == "pca":
-            self.aggregation = PcaReduction(self.model_manager, dataset, config, self.configuration_key)
+            self.aggregation = PcaReduction(
+                self.model_manager, dataset, config, self.configuration_key
+            )
         elif aggregation_option == "autoencoder":
-            self.aggregation = AutoencoderReduction(self.model_manager, config, self.configuration_key)
+            self.aggregation = AutoencoderReduction(
+                self.model_manager, config, self.configuration_key
+            )
         elif aggregation_option == "oneton":
-            self.aggregation = OneToN(self.model_manager, dataset, config, self.configuration_key)
+            self.aggregation = OneToN(
+                self.model_manager, dataset, config, self.configuration_key
+            )
         else:
             raise Exception("Unknown dimensionality reduction: " + aggregation_option)
 
@@ -100,7 +115,9 @@ class EmbeddingEnsemble(Ensemble):
         scores = self.evaluator.score_emb(s_emb, p_emb, o_emb, "s_o")
         return scores
 
-    def score_sp_po(self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None) -> Tensor:
+    def score_sp_po(
+        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
+    ) -> Tensor:
         # aggregate standard model embeddings
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
         p_emb = self.aggregation.aggregate(EmbeddingTarget.Predicate, p)
@@ -131,4 +148,3 @@ class EmbeddingEnsemble(Ensemble):
         result = super().penalty(**kwargs)
         result += self.aggregation.penalty(**kwargs)
         return result
-

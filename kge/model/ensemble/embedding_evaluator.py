@@ -9,7 +9,6 @@ from kge.misc import init_from
 
 
 class EmbeddingEvaluator(nn.Module, Configurable):
-
     def __init__(self, config: Config, configuration_key, parent_configuration_key):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
@@ -33,9 +32,10 @@ class EmbeddingEvaluator(nn.Module, Configurable):
 
 
 class KgeAdapter(EmbeddingEvaluator):
-
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
-        EmbeddingEvaluator.__init__(self, config, "kge_adapter", parent_configuration_key)
+        EmbeddingEvaluator.__init__(
+            self, config, "kge_adapter", parent_configuration_key
+        )
 
         model_name = self.get_option("model.type")
         class_name = config.get(model_name + ".class_name")
@@ -43,7 +43,7 @@ class KgeAdapter(EmbeddingEvaluator):
         # change embedding size to aggregated dimensions
         dim_options = {
             self.configuration_key + ".model.entity_embedder.dim": self.entity_dim,
-            self.configuration_key + ".model.relation_embedder.dim": self.relation_dim
+            self.configuration_key + ".model.relation_embedder.dim": self.relation_dim,
         }
         self.config.load_options(dim_options, create=True)
 
@@ -55,7 +55,7 @@ class KgeAdapter(EmbeddingEvaluator):
                 config=config,
                 dataset=dataset,
                 configuration_key=self.configuration_key + ".model",
-                init_for_load_only=True
+                init_for_load_only=True,
             )
             self.model.to(config.get("job.device"))
         except:
@@ -77,7 +77,9 @@ class FineTuning(EmbeddingEvaluator):
     """
 
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
-        EmbeddingEvaluator.__init__(self, config, "finetuning", parent_configuration_key)
+        EmbeddingEvaluator.__init__(
+            self, config, "finetuning", parent_configuration_key
+        )
 
         num_layers = self.get_option("num_layers")
         dropout = self.get_option("dropout")
@@ -87,7 +89,9 @@ class FineTuning(EmbeddingEvaluator):
         for idx in range(0, num_layers):
             entity_nn_dict[str(i) + "-dropout"] = nn.Dropout(p=dropout)
             i += 1
-            entity_nn_dict[str(i) + "-linear"] = nn.Linear(self.entity_dim, self.entity_dim)
+            entity_nn_dict[str(i) + "-linear"] = nn.Linear(
+                self.entity_dim, self.entity_dim
+            )
             i += 1
             if idx + 1 < num_layers:
                 entity_nn_dict[str(i) + "-relu"] = nn.ReLU()
@@ -98,7 +102,9 @@ class FineTuning(EmbeddingEvaluator):
         for idx in range(0, num_layers):
             relation_nn_dict[str(i) + "-dropout"] = nn.Dropout(p=dropout)
             i += 1
-            relation_nn_dict[str(i) + "-linear"] = nn.Linear(self.relation_dim, self.relation_dim)
+            relation_nn_dict[str(i) + "-linear"] = nn.Linear(
+                self.relation_dim, self.relation_dim
+            )
             i += 1
             if idx + 1 < num_layers:
                 relation_nn_dict[str(i) + "-relu"] = nn.ReLU()

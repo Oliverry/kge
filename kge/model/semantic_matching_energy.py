@@ -7,7 +7,6 @@ from kge.model.kge_model import RelationalScorer
 
 
 class SmeScorer(RelationalScorer):
-
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
         entity_dim = self.get_option("entity_embedder.dim")
@@ -19,15 +18,25 @@ class SmeScorer(RelationalScorer):
         if layer_dim < 0:
             layer_dim = entity_dim
         if self.g_func == "linear":
-            self.sp_linear = torch.nn.Linear(entity_dim + relation_dim, layer_dim, bias=True)
-            self.po_linear = torch.nn.Linear(relation_dim + entity_dim, layer_dim, bias=True)
+            self.sp_linear = torch.nn.Linear(
+                entity_dim + relation_dim, layer_dim, bias=True
+            )
+            self.po_linear = torch.nn.Linear(
+                relation_dim + entity_dim, layer_dim, bias=True
+            )
         elif self.g_func == "bilinear":
-            self.sp_bilinear = torch.nn.Bilinear(entity_dim, relation_dim, entity_dim, bias=True)
-            self.po_bilinear = torch.nn.Bilinear(relation_dim, entity_dim, entity_dim, bias=True)
+            self.sp_bilinear = torch.nn.Bilinear(
+                entity_dim, relation_dim, entity_dim, bias=True
+            )
+            self.po_bilinear = torch.nn.Bilinear(
+                relation_dim, entity_dim, entity_dim, bias=True
+            )
         else:
             raise ValueError
 
-    def score_emb(self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor, combine: str) -> Tensor:
+    def score_emb(
+        self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor, combine: str
+    ) -> Tensor:
         n = p_emb.size(0)
         if combine == "spo":
             if self.g_func == "linear":
@@ -42,7 +51,9 @@ class SmeScorer(RelationalScorer):
                 po_embed = self.sp_bilinear(p_emb, o_emb)
             else:
                 raise ValueError
-            out = torch.einsum('ij,ij->i', sp_embed, po_embed)  # compute row-wise dot product
+            out = torch.einsum(
+                "ij,ij->i", sp_embed, po_embed
+            )  # compute row-wise dot product
         elif combine == "sp_":
             score_list = []
             for o_emb_single in o_emb:
@@ -59,7 +70,7 @@ class SmeScorer(RelationalScorer):
                     po_embed = self.sp_bilinear(p_emb, o_emb_rep)
                 else:
                     raise ValueError
-                embed_score = torch.einsum('ij,ij->i', sp_embed, po_embed)
+                embed_score = torch.einsum("ij,ij->i", sp_embed, po_embed)
                 score_list.append(embed_score)
             out = torch.stack(score_list, 1)
         elif combine == "_po":
@@ -78,7 +89,7 @@ class SmeScorer(RelationalScorer):
                     po_embed = self.sp_bilinear(p_emb, o_emb)
                 else:
                     raise ValueError
-                embed_score = torch.einsum('ij,ij->i', sp_embed, po_embed)
+                embed_score = torch.einsum("ij,ij->i", sp_embed, po_embed)
                 score_list.append(embed_score)
             out = torch.stack(score_list, 1)
         else:
@@ -88,11 +99,11 @@ class SmeScorer(RelationalScorer):
 
 class SemanticMatchingEnergy(KgeModel):
     def __init__(
-            self,
-            config: Config,
-            dataset: Dataset,
-            configuration_key=None,
-            init_for_load_only=False,
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
     ):
         super().__init__(
             config=config,

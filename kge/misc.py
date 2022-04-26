@@ -43,7 +43,7 @@ def init_from(
 
 
 def is_number(s, number_type):
-    """ Returns True is string is a number. """
+    """Returns True is string is a number."""
     try:
         number_type(s)
         return True
@@ -167,4 +167,3 @@ def round_to_points(round_points_to: List[int], to_be_rounded: int):
 
 def pretrained_model_dir():
     return os.path.join(kge_base_dir(), "local", "pretraining")
-

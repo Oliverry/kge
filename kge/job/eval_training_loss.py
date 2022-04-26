@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 
 class TrainingLossEvaluationJob(EvaluationJob):
-    """ Evaluating by using the training loss """
+    """Evaluating by using the training loss"""
 
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)

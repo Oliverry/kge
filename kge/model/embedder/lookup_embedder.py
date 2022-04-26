@@ -35,7 +35,9 @@ class LookupEmbedder(KgeEmbedder):
             self.dim = round_to_points(round_embedder_dim_to, self.dim)
 
         self._embeddings = torch.nn.Embedding(
-            self.vocab_size, self.dim, sparse=self.sparse,
+            self.vocab_size,
+            self.dim,
+            sparse=self.sparse,
         )
 
         if not init_for_load_only:
@@ -142,7 +144,7 @@ class LookupEmbedder(KgeEmbedder):
                         (
                             regularize_weight
                             / p
-                            * (parameters ** p * counts.float().view(-1, 1))
+                            * (parameters**p * counts.float().view(-1, 1))
                         ).sum()
                         # In contrast to unweighted Lp regularization, rescaling by
                         # number of triples/indexes is necessary here so that penalty

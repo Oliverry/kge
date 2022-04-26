@@ -7,11 +7,11 @@ from functools import reduce
 
 
 class KgeOptimizer:
-    """ Wraps torch optimizers """
+    """Wraps torch optimizers"""
 
     @staticmethod
     def create(config, model):
-        """ Factory method for optimizer creation """
+        """Factory method for optimizer creation"""
         try:
             optimizer = getattr(torch.optim, config.get("train.optimizer.default.type"))
             return optimizer(
@@ -49,7 +49,9 @@ class KgeOptimizer:
             if group_name == "default":
                 continue
             if "type" in parameter_group.keys():
-                raise NotImplementedError("Multiple optimizer types are not yet supported.")
+                raise NotImplementedError(
+                    "Multiple optimizer types are not yet supported."
+                )
             search_pattern = re.compile(parameter_group["regex"])
             filtered_named_parameters = set(
                 filter(search_pattern.match, named_parameters.keys())
@@ -96,7 +98,7 @@ class KgeOptimizer:
 
 
 class KgeLRScheduler(Configurable):
-    """ Wraps torch learning rate (LR) schedulers """
+    """Wraps torch learning rate (LR) schedulers"""
 
     def __init__(self, config: Config, optimizer):
         super().__init__(config)

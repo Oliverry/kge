@@ -8,7 +8,9 @@ from kge.model import KgeModel, ReciprocalRelationsModel, RotatE
 from kge.model.ensemble.util import EmbeddingTarget, contains_model
 
 
-def fetch_embedding(model: KgeModel, target: EmbeddingTarget, indexes: Tensor = None) -> Tensor:
+def fetch_embedding(
+    model: KgeModel, target: EmbeddingTarget, indexes: Tensor = None
+) -> Tensor:
     """
     Fetches the embedding of a given model and indexes using the specified embedder
     :param target:
@@ -30,7 +32,9 @@ def fetch_embedding(model: KgeModel, target: EmbeddingTarget, indexes: Tensor = 
             out_two = out_rrm[half_t:]
         else:
             out_one = model.get_p_embedder().embed(indexes)
-            out_two = model.get_p_embedder().embed(indexes + model.dataset.num_relations())
+            out_two = model.get_p_embedder().embed(
+                indexes + model.dataset.num_relations()
+            )
         out = 0.5 * (out_one + out_two)
     else:
         # normal embedding fetching
@@ -58,7 +62,6 @@ def fetch_embedding(model: KgeModel, target: EmbeddingTarget, indexes: Tensor = 
 
 
 class ModelManager:
-
     def __init__(self, config: Config, models: List[KgeModel]):
         self.models = models
 
@@ -67,7 +70,10 @@ class ModelManager:
         self.dims = {}
         for idx, model in enumerate(self.models):
             entity_emb = fetch_embedding(
-                model, EmbeddingTarget.Subject, torch.tensor([0], device=config.get("job.device")))
+                model,
+                EmbeddingTarget.Subject,
+                torch.tensor([0], device=config.get("job.device")),
+            )
             entity_dim = entity_emb.size()[1]
             self.dims[idx] = entity_dim
 
@@ -114,7 +120,7 @@ class ModelManager:
         return scores
 
     def score_sp_po(
-            self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
+        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
     ) -> Tensor:
         scores_list = []
         for model in self.models:
@@ -123,7 +129,9 @@ class ModelManager:
         scores = torch.stack(scores_list, dim=2)
         return scores
 
-    def fetch_model_embeddings(self, target: EmbeddingTarget, indexes: Tensor = None) -> Dict[int, Tensor]:
+    def fetch_model_embeddings(
+        self, target: EmbeddingTarget, indexes: Tensor = None
+    ) -> Dict[int, Tensor]:
         """
         Return tensor of size n times m times dim, where n is the length of the index tensor,
         m is the number of models and dim is the embedding length.

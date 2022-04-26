@@ -66,7 +66,9 @@ class KvsAllIndex:
         keys = keys.astype(np.int32)
         index_of_key = dict()
         for key_index in range(len(keys)):
-            index_of_key[(keys[key_index, 0].item(), keys[key_index, 1].item())] = key_index
+            index_of_key[
+                (keys[key_index, 0].item(), keys[key_index, 1].item())
+            ] = key_index
         return index_of_key
 
     def __getstate__(self):
@@ -101,7 +103,9 @@ class KvsAllIndex:
             return np.int32(key[0]), np.int32(key[1])
         if key_type is torch.Tensor:
             return np.int32(key[0].item()), np.int32(key[1].item())
-        raise ValueError("Input type for key attribute in KvsAllIndex needs to be Tuple[np.int32,np.int32]")
+        raise ValueError(
+            "Input type for key attribute in KvsAllIndex needs to be Tuple[np.int32,np.int32]"
+        )
 
     def _values_of(self, key_index) -> torch.Tensor:
         start = self._values_offset[key_index]
@@ -111,10 +115,10 @@ class KvsAllIndex:
     @staticmethod
     @numba.njit()
     def _get_all_impl(
-            keys: np.ndarray,
-            index_of_key: Dict[Tuple[int, int], int],
-            values: np.ndarray,
-            values_offset: np.ndarray
+        keys: np.ndarray,
+        index_of_key: Dict[Tuple[int, int], int],
+        values: np.ndarray,
+        values_offset: np.ndarray,
     ):
         """
         Looks up all values corresponding to keys and outputs them in a single tensor
@@ -137,17 +141,21 @@ class KvsAllIndex:
             if index < 0:
                 continue
             total_length += len(
-                values[values_offset[key_index[i].item()]:values_offset[key_index[i].item()+1]]
+                values[
+                    values_offset[key_index[i].item()] : values_offset[
+                        key_index[i].item() + 1
+                    ]
+                ]
             )
         result = np.empty((total_length, 2), dtype=np.int32)
         current_index = 0
         for i in range(len(key_index)):
             if key_index[i].item() < 0:
                 continue
-            res = (values[values_offset[key_index[i]]:values_offset[key_index[i]+1]])
+            res = values[values_offset[key_index[i]] : values_offset[key_index[i] + 1]]
             len_res = len(res)
-            result[current_index: current_index+len_res, 0] = i
-            result[current_index: current_index + len_res, 1] = res
+            result[current_index : current_index + len_res, 0] = i
+            result[current_index : current_index + len_res, 1] = res
             current_index += len_res
         return result
 
@@ -162,8 +170,10 @@ class KvsAllIndex:
         keys = keys.int()
         return torch.from_numpy(
             self._get_all_impl(
-                keys.numpy(), self._index_of_key,
-                self._values.numpy(), self._values_offset.numpy()
+                keys.numpy(),
+                self._index_of_key,
+                self._values.numpy(),
+                self._values_offset.numpy(),
             )
         )
 
@@ -222,7 +232,9 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     name = split + "_" + key + "_to_" + value
     if not dataset._indexes.get(name):
         triples = dataset.split(split)
-        dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, torch.IntTensor)
+        dataset._indexes[name] = KvsAllIndex(
+            triples, key_cols, value_col, torch.IntTensor
+        )
 
     dataset.config.log(
         "{} distinct {} pairs in {}".format(len(dataset._indexes[name]), key, split),

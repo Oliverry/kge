@@ -5,7 +5,9 @@ from kge.model.ensemble.model_manager import ModelManager
 from kge.model.ensemble.util import EmbeddingType, EmbeddingTarget
 
 
-def create_aggregation_dataloader(model_manager: ModelManager, e_type: EmbeddingType, split_ratio, batch_size, shuffle):
+def create_aggregation_dataloader(
+    model_manager: ModelManager, e_type: EmbeddingType, split_ratio, batch_size, shuffle
+):
     if e_type == EmbeddingType.Entity:
         data = model_manager.fetch_model_embeddings(EmbeddingTarget.Subject)
     elif e_type == EmbeddingType.Relation:
@@ -17,7 +19,9 @@ def create_aggregation_dataloader(model_manager: ModelManager, e_type: Embedding
     # split data to train and valid set
     n = len(dataset_complete)
     split_train = round(n * split_ratio)
-    dataset_train, dataset_valid = random_split(dataset_complete, [split_train, n - split_train])
+    dataset_train, dataset_valid = random_split(
+        dataset_complete, [split_train, n - split_train]
+    )
 
     # create datasets and dataloader
     dataloader_train = DataLoader(dataset_train, batch_size, shuffle)

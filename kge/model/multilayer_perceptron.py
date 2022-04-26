@@ -7,7 +7,6 @@ from kge.model.kge_model import RelationalScorer, KgeModel
 
 
 class MultiLayerPerceptronScorer(RelationalScorer):
-
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
         entity_dim = self.get_option("entity_embedder.dim")
@@ -32,7 +31,9 @@ class MultiLayerPerceptronScorer(RelationalScorer):
         scores = self.sigmoid(embeds)
         return scores
 
-    def score_emb(self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor, combine: str) -> Tensor:
+    def score_emb(
+        self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor, combine: str
+    ) -> Tensor:
         n = p_emb.size(0)
         if combine == "spo":
             embeds = torch.cat((s_emb, p_emb, o_emb), 1)
@@ -71,13 +72,12 @@ class MultiLayerPerceptronScorer(RelationalScorer):
 
 
 class MultilayerPerceptron(KgeModel):
-
     def __init__(
-            self,
-            config: Config,
-            dataset: Dataset,
-            configuration_key=None,
-            init_for_load_only=False,
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
     ):
         super().__init__(
             config=config,

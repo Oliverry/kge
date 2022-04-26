@@ -37,7 +37,7 @@ def _generate_worker_init_fn(config):
         if use_fixed_seed:
             # reseed based on current seed (same for all workers) and worker number
             # (different)
-            base_seed = np.random.randint(2 ** 32 - 1)
+            base_seed = np.random.randint(2**32 - 1)
             np.random.seed(base_seed + worker_num)
         else:
             # reseed fresh
@@ -90,7 +90,7 @@ class TrainingJob(TrainingOrEvaluationJob):
             self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
             self._lr_warmup = self.config.get("train.lr_warmup")
             for group in self.optimizer.param_groups:
-                group["initial_lr"]=group["lr"]
+                group["initial_lr"] = group["lr"]
 
             self.valid_trace: List[Dict[str, Any]] = []
             valid_conf = config.clone()
@@ -198,7 +198,9 @@ class TrainingJob(TrainingOrEvaluationJob):
             # update learning rate if warmup is used
             if self.epoch < self._lr_warmup:
                 for group in self.optimizer.param_groups:
-                    group["lr"] = group["initial_lr"] * (self.epoch+1) / self._lr_warmup
+                    group["lr"] = (
+                        group["initial_lr"] * (self.epoch + 1) / self._lr_warmup
+                    )
 
             # start a new epoch
             self.epoch += 1
@@ -318,7 +320,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         )
 
     def run_epoch(self) -> Dict[str, Any]:
-        """ Runs an epoch and returns its trace entry. """
+        """Runs an epoch and returns its trace entry."""
 
         # create initial trace entry
         self.current_trace["epoch"] = dict(

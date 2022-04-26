@@ -14,7 +14,7 @@ S, P, O = SLOTS
 
 
 class KgeSampler(Configurable):
-    """Negative sampler. """
+    """Negative sampler."""
 
     def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
         super().__init__(config, configuration_key)
@@ -163,7 +163,7 @@ class KgeSampler(Configurable):
     def _filter_and_resample(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor
     ) -> torch.Tensor:
-        """Filter and resample indices until only negatives have been created. """
+        """Filter and resample indices until only negatives have been created."""
         pair_str = ["po", "so", "sp"][slot]
         # holding the positive indices for the respective pair
         index = self.dataset.index(
@@ -719,7 +719,11 @@ class KgeUniformSampler(KgeSampler):
             positives_index[pair] = index.get(pair).numpy()
         negative_samples = negative_samples.numpy()
         KgeUniformSampler._filter_and_resample_numba(
-            negative_samples, pairs, positives_index, batch_size, int(voc_size),
+            negative_samples,
+            pairs,
+            positives_index,
+            batch_size,
+            int(voc_size),
         )
         return torch.tensor(negative_samples, dtype=torch.int64)
 

@@ -3,17 +3,19 @@ from torch import Tensor
 
 from kge import Config, Dataset
 from kge.model import Ensemble
-from kge.model.ensemble.scoring_evaluator import AvgScoringEvaluator, PlattScalingEvaluator
+from kge.model.ensemble.scoring_evaluator import (
+    AvgScoringEvaluator,
+    PlattScalingEvaluator,
+)
 
 
 class ScoringEnsemble(Ensemble):
-
     def __init__(
-            self,
-            config: Config,
-            dataset: Dataset,
-            configuration_key=None,
-            init_for_load_only=False,
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
     ):
         super().__init__(
             config=config,

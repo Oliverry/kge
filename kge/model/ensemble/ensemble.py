@@ -20,11 +20,11 @@ class Ensemble(KgeModel):
     """
 
     def __init__(
-            self,
-            config: Config,
-            dataset: Dataset,
-            configuration_key=None,
-            init_for_load_only=False,
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
     ):
         super().__init__(
             config=config,
@@ -32,7 +32,7 @@ class Ensemble(KgeModel):
             scorer=None,
             create_embedders=False,
             configuration_key=configuration_key,
-            init_for_load_only=init_for_load_only
+            init_for_load_only=init_for_load_only,
         )
         base_models_names = self.get_option("base_models")
         base_models = []
@@ -41,8 +41,9 @@ class Ensemble(KgeModel):
             # check if all models use a single embedder for subjects and objects
             if not model.get_s_embedder() is model.get_o_embedder():
                 raise Exception(
-                    "Ensemble only support KGE models with the same subject and object embedder. " +
-                    "This is not the case for " + model_name
+                    "Ensemble only support KGE models with the same subject and object embedder. "
+                    + "This is not the case for "
+                    + model_name
                 )
             base_models.append(model)
         self.model_manager = ModelManager(self.config, base_models)
@@ -53,10 +54,16 @@ class Ensemble(KgeModel):
         :param model_name:
         :return:
         """
-        pretrained_model_path = os.path.join(pretrained_model_dir(), self.config.get("dataset.name"), model_name)
-        pretrained_model_checkpoint_path = os.path.join(pretrained_model_path, "checkpoint_best.pt")
+        pretrained_model_path = os.path.join(
+            pretrained_model_dir(), self.config.get("dataset.name"), model_name
+        )
+        pretrained_model_checkpoint_path = os.path.join(
+            pretrained_model_path, "checkpoint_best.pt"
+        )
         if exists(pretrained_model_checkpoint_path):
-            checkpoint = load_checkpoint(pretrained_model_checkpoint_path, self.config.get("job.device"))
+            checkpoint = load_checkpoint(
+                pretrained_model_checkpoint_path, self.config.get("job.device")
+            )
             model = KgeModel.create_from(checkpoint, self.dataset)
             return model
         else:
@@ -90,7 +97,9 @@ class Ensemble(KgeModel):
         raise Exception("The ensemble model does not support on own object embedder.")
 
     def get_p_embedder(self) -> KgeEmbedder:
-        raise Exception("The ensemble model does not support an own predicate embedder.")
+        raise Exception(
+            "The ensemble model does not support an own predicate embedder."
+        )
 
     def get_scorer(self) -> RelationalScorer:
         raise Exception("The ensemble model does not support an own relational scorer.")

@@ -1,4 +1,3 @@
-
 import torch
 
 from kge import Config, Dataset

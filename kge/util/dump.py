@@ -27,7 +27,7 @@ def add_dump_parsers(subparsers):
 
 
 def dump(args):
-    """Execute the 'kge dump' commands. """
+    """Execute the 'kge dump' commands."""
     if args.dump_command == "trace":
         _dump_trace(args)
     elif args.dump_command == "checkpoint":

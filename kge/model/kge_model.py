@@ -617,7 +617,8 @@ class KgeModel(KgeBase):
                         (triples[:, S].view(-1, 1), triples[:, O].view(-1, 1)), dim=1
                     )
                 entity_penalty_result = self.get_s_embedder().penalty(
-                    indexes=entity_indexes, **kwargs,
+                    indexes=entity_indexes,
+                    **kwargs,
                 )
                 if not weighted:
                     # backwards compatibility

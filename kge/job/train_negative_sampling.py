@@ -30,7 +30,8 @@ class TrainingJobNegativeSampling(TrainingJob):
         super()._prepare()
         # select negative sampling implementation
         self._implementation = self.config.check(
-            "negative_sampling.implementation", ["triple", "all", "batch", "auto"],
+            "negative_sampling.implementation",
+            ["triple", "all", "batch", "auto"],
         )
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
@@ -140,7 +141,10 @@ class TrainingJobNegativeSampling(TrainingJob):
             result.forward_time -= time.time()
             scores = torch.empty((subbatch_size, num_samples + 1), device=self.device)
             scores[:, 0] = self.model.score_spo(
-                triples[:, S], triples[:, P], triples[:, O], direction=SLOT_STR[slot],
+                triples[:, S],
+                triples[:, P],
+                triples[:, O],
+                direction=SLOT_STR[slot],
             )
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(

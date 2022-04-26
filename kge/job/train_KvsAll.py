@@ -171,7 +171,9 @@ class TrainingJobKvsAll(TrainingJob):
                         break
                     start = end
 
-                queries_batch[batch_index,] = queries[example_index]
+                queries_batch[
+                    batch_index,
+                ] = queries[example_index]
                 start = label_offsets[example_index]
                 end = label_offsets[example_index + 1]
                 size = end - start

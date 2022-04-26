@@ -17,6 +17,8 @@ autoencoder:
 oneton:
   entity_reduction: 0.5
   relation_reduction: 0.5
+  mean: 0.0
+  std: 1.0
 
 onetonet:
   dropout: 0.0

@@ -46,7 +46,9 @@ def pad_embeds(embeds, padding_length):
 
 def pad_embed(embed, padding_length):
     last_dim = embed.size()[1]
-    padded_embed = F.pad(input=embed, pad=(0, padding_length - last_dim), mode='constant', value=0)
+    padded_embed = F.pad(
+        input=embed, pad=(0, padding_length - last_dim), mode="constant", value=0
+    )
     return padded_embed
 
 
@@ -68,8 +70,13 @@ def avg_embeds(embeds):
 
 
 class AggregationBase(nn.Module, Configurable):
-
-    def __init__(self, model_manager: ModelManager, config: Config, configuration_key, parent_configuration_key):
+    def __init__(
+        self,
+        model_manager: ModelManager,
+        config: Config,
+        configuration_key,
+        parent_configuration_key,
+    ):
         """
         Initializes basic dim reduction variables.
         Updates the reduced dimensionality in embedding ensemble if entity_reduction and relation_reduction
@@ -89,8 +96,12 @@ class AggregationBase(nn.Module, Configurable):
         self.compute_dims()
 
         # write agg dims for evaluator in embedding ensemble config
-        self.config.set(parent_configuration_key + ".entity_agg_dim", self.entity_agg_dim)
-        self.config.set(parent_configuration_key + ".relation_agg_dim", self.relation_agg_dim)
+        self.config.set(
+            parent_configuration_key + ".entity_agg_dim", self.entity_agg_dim
+        )
+        self.config.set(
+            parent_configuration_key + ".relation_agg_dim", self.relation_agg_dim
+        )
 
     def compute_dims(self):
         # compute concatenated agg dim
@@ -113,7 +124,9 @@ class AggregationBase(nn.Module, Configurable):
         if self.entity_agg_dim % 2 != 0:
             self.entity_agg_dim += 1
         # compute relation dimension on base of entity embedding size
-        self.relation_agg_dim = round(self.entity_agg_dim * (relation_reduction / entity_reduction))
+        self.relation_agg_dim = round(
+            self.entity_agg_dim * (relation_reduction / entity_reduction)
+        )
 
     def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         """
@@ -133,9 +146,10 @@ class AggregationBase(nn.Module, Configurable):
 
 
 class Concat(AggregationBase):
-
     def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
-        AggregationBase.__init__(self, model_manager, config, "concat", parent_configuration_key)
+        AggregationBase.__init__(
+            self, model_manager, config, "concat", parent_configuration_key
+        )
 
     def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         t = self.model_manager.fetch_model_embeddings(target, indexes)
@@ -148,9 +162,10 @@ class Concat(AggregationBase):
 
 
 class MeanReduction(AggregationBase):
-
     def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
-        AggregationBase.__init__(self, model_manager, config, "mean", parent_configuration_key)
+        AggregationBase.__init__(
+            self, model_manager, config, "mean", parent_configuration_key
+        )
 
     def compute_dims(self):
         # find the longest entity and relation embeddings
@@ -181,18 +196,27 @@ class MeanReduction(AggregationBase):
 
 
 class PcaReduction(AggregationBase):
+    def __init__(
+        self, model_manager: ModelManager, dataset, config, parent_configuration_key
+    ):
+        AggregationBase.__init__(
+            self, model_manager, config, "pca", parent_configuration_key
+        )
 
-    def __init__(self, model_manager: ModelManager, dataset, config, parent_configuration_key):
-        AggregationBase.__init__(self, model_manager, config, "pca", parent_configuration_key)
-
-        self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), self.entity_agg_dim)
-        self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), self.relation_agg_dim)
+        self._entity_embedder = torch.nn.Embedding(
+            dataset.num_entities(), self.entity_agg_dim
+        )
+        self._relation_embedder = torch.nn.Embedding(
+            dataset.num_relations(), self.relation_agg_dim
+        )
 
     def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         if target == EmbeddingTarget.Subject or target == EmbeddingTarget.Object:
             if indexes is None:
                 entity_indexes = torch.arange(
-                    self.dataset.num_entities(), dtype=torch.long, device=self._entity_embedder.weight.device
+                    self.dataset.num_entities(),
+                    dtype=torch.long,
+                    device=self._entity_embedder.weight.device,
                 )
                 return self._entity_embedder(entity_indexes)
             else:
@@ -200,7 +224,9 @@ class PcaReduction(AggregationBase):
         elif target == EmbeddingTarget.Predicate:
             if indexes is None:
                 relation_indexes = torch.arange(
-                    self.dataset.num_relations(), dtype=torch.long, device=self._entity_embedder.weight.device
+                    self.dataset.num_relations(),
+                    dtype=torch.long,
+                    device=self._entity_embedder.weight.device,
                 )
                 return self._relation_embedder(relation_indexes)
             else:
@@ -214,8 +240,12 @@ class PcaReduction(AggregationBase):
         relation_pca = PCA(n_components=self.relation_agg_dim)
 
         # fetch and preprocess embeddings
-        entity_embeds = self.model_manager.fetch_model_embeddings(EmbeddingTarget.Subject)
-        relation_embeds = self.model_manager.fetch_model_embeddings(EmbeddingTarget.Predicate)
+        entity_embeds = self.model_manager.fetch_model_embeddings(
+            EmbeddingTarget.Subject
+        )
+        relation_embeds = self.model_manager.fetch_model_embeddings(
+            EmbeddingTarget.Predicate
+        )
         entity_embeds = concat_embeds(entity_embeds)
         relation_embeds = concat_embeds(relation_embeds)
 
@@ -229,9 +259,13 @@ class PcaReduction(AggregationBase):
 
         # apply pca
         entity_embeds = entity_pca.fit_transform(entity_embeds)
-        entity_embeds = torch.tensor(entity_embeds, dtype=torch.float, device=self.config.get("job.device"))
+        entity_embeds = torch.tensor(
+            entity_embeds, dtype=torch.float, device=self.config.get("job.device")
+        )
         relation_embeds = relation_pca.fit_transform(relation_embeds)
-        relation_embeds = torch.tensor(relation_embeds, dtype=torch.float, device=self.config.get("job.device"))
+        relation_embeds = torch.tensor(
+            relation_embeds, dtype=torch.float, device=self.config.get("job.device")
+        )
 
         # store embeddings
         self._entity_embedder = nn.Embedding.from_pretrained(entity_embeds)
@@ -239,9 +273,16 @@ class PcaReduction(AggregationBase):
 
 
 class AutoencoderReduction(AggregationBase):
-
-    def __init__(self, model_manager: ModelManager, config: Config, parent_configuration_key):
-        AggregationBase.__init__(self, model_manager, config, "autoencoder_reduction", parent_configuration_key)
+    def __init__(
+        self, model_manager: ModelManager, config: Config, parent_configuration_key
+    ):
+        AggregationBase.__init__(
+            self,
+            model_manager,
+            config,
+            "autoencoder_reduction",
+            parent_configuration_key,
+        )
 
         # get training parameters
         self.epochs = self.get_option("epochs")
@@ -356,8 +397,11 @@ class AutoencoderReduction(AggregationBase):
                 trigger_times = 0
             last_loss = current_loss
 
-            self.config.log("epoch : {}/{}, loss = {:.6f}, valid = {:.6f}".
-                            format(epoch + 1, self.epochs, loss_val, current_loss))
+            self.config.log(
+                "epoch : {}/{}, loss = {:.6f}, valid = {:.6f}".format(
+                    epoch + 1, self.epochs, loss_val, current_loss
+                )
+            )
 
     def validate(self, model, e_type, dataloader_valid, loss_function):
         model.eval()
@@ -401,7 +445,8 @@ class Autoencoder(nn.Module, Configurable):
         decode_dict = OrderedDict()
 
         layer_dims = [
-            round(self.dim_in - n * ((self.dim_in - self.dim_out) / self.num_layers)) for n in range(0, self.num_layers)
+            round(self.dim_in - n * ((self.dim_in - self.dim_out) / self.num_layers))
+            for n in range(0, self.num_layers)
         ]
         layer_dims.append(self.dim_out)
 
@@ -409,13 +454,17 @@ class Autoencoder(nn.Module, Configurable):
         for idx in range(0, self.num_layers):
             encode_dict[str(i) + "-dropout"] = nn.Dropout(p=self.dropout)
             i += 1
-            encode_dict[str(i) + "-linear"] = nn.Linear(layer_dims[idx], layer_dims[idx + 1], bias=True)
+            encode_dict[str(i) + "-linear"] = nn.Linear(
+                layer_dims[idx], layer_dims[idx + 1], bias=True
+            )
             i += 1
             if idx + 1 < self.num_layers:
                 encode_dict[str(i) + "-relu"] = nn.ReLU()
                 i += 1
         for idx in reversed(range(0, self.num_layers)):
-            decode_dict[str(i) + "-linear"] = nn.Linear(layer_dims[idx + 1], layer_dims[idx], bias=True)
+            decode_dict[str(i) + "-linear"] = nn.Linear(
+                layer_dims[idx + 1], layer_dims[idx], bias=True
+            )
             i += 1
             if idx > 0:
                 decode_dict[str(i) + "-relu"] = nn.ReLU()
@@ -439,34 +488,55 @@ class Autoencoder(nn.Module, Configurable):
 
 
 class OneToN(AggregationBase):
-
-    def __init__(self, model_manager: ModelManager, dataset: Dataset, config: Config, parent_configuration_key):
-        AggregationBase.__init__(self, model_manager, config, "oneton", parent_configuration_key)
+    def __init__(
+        self,
+        model_manager: ModelManager,
+        dataset: Dataset,
+        config: Config,
+        parent_configuration_key,
+    ):
+        AggregationBase.__init__(
+            self, model_manager, config, "oneton", parent_configuration_key
+        )
 
         # set model parameters
         self.dataset = dataset
+        mean = self.get_option("mean")
+        std = self.get_option("std")
 
         # create embedders
-        self._entity_embedder = torch.nn.Embedding(dataset.num_entities(), self.entity_agg_dim)
-        self._relation_embedder = torch.nn.Embedding(dataset.num_relations(), self.relation_agg_dim)
+        self._entity_embedder = torch.nn.Embedding(
+            dataset.num_entities(), self.entity_agg_dim
+        )
+        self._relation_embedder = torch.nn.Embedding(
+            dataset.num_relations(), self.relation_agg_dim
+        )
+        torch.nn.init.normal_(self._entity_embedder.weight, mean=mean, std=std)
+        torch.nn.init.normal_(self._relation_embedder.weight, mean=mean, std=std)
 
         # create neural nets for metaembedding projection
         num_models = self.model_manager.num_models()
         model_dims = self.model_manager.get_model_dims()
         self.entity_nets = nn.ModuleList(
-            [OneToNet(config, self.entity_agg_dim, model_dims[model_idx])
-             for model_idx in range(num_models)]
+            [
+                OneToNet(config, self.entity_agg_dim, model_dims[model_idx])
+                for model_idx in range(num_models)
+            ]
         )
         self.relation_nets = nn.ModuleList(
-            [OneToNet(config, self.entity_agg_dim, model_dims[model_idx])
-             for model_idx in range(num_models)]
+            [
+                OneToNet(config, self.entity_agg_dim, model_dims[model_idx])
+                for model_idx in range(num_models)
+            ]
         )
 
     def aggregate(self, target, indexes: Tensor = None):
         if target == EmbeddingTarget.Subject or target == EmbeddingTarget.Object:
             if indexes is None:
                 entity_indexes = torch.arange(
-                    self.dataset.num_entities(), dtype=torch.long, device=self._entity_embedder.weight.device
+                    self.dataset.num_entities(),
+                    dtype=torch.long,
+                    device=self._entity_embedder.weight.device,
                 )
                 return self._entity_embedder(entity_indexes)
             else:
@@ -474,7 +544,9 @@ class OneToN(AggregationBase):
         elif target == EmbeddingTarget.Predicate:
             if indexes is None:
                 relation_indexes = torch.arange(
-                    self.dataset.num_relations(), dtype=torch.long, device=self._entity_embedder.weight.device
+                    self.dataset.num_relations(),
+                    dtype=torch.long,
+                    device=self._entity_embedder.weight.device,
                 )
                 return self._relation_embedder(relation_indexes)
             else:
@@ -487,40 +559,48 @@ class OneToN(AggregationBase):
 
     def penalty(self, **kwargs) -> List[Tensor]:
         result = super().penalty(**kwargs)
-        penalty_sum = torch.tensor([0], dtype=torch.float32, device=self.config.get("job.device"))
+        penalty_sum = torch.tensor(
+            [0], dtype=torch.float32, device=self.config.get("job.device")
+        )
         loss_fn = torch.nn.MSELoss()
 
         # fetch all original model embeddings for entities and relations
-        entity_embeds = self.model_manager.fetch_model_embeddings(EmbeddingTarget.Subject)
-        relation_embeds = self.model_manager.fetch_model_embeddings(EmbeddingTarget.Predicate)
+        entity_embeds = self.model_manager.fetch_model_embeddings(
+            EmbeddingTarget.Subject
+        )
+        relation_embeds = self.model_manager.fetch_model_embeddings(
+            EmbeddingTarget.Predicate
+        )
 
         # get all entity and relation indexes
         entity_indexes = torch.arange(
-            self.dataset.num_entities(), dtype=torch.long, device=self._entity_embedder.weight.device
+            self.dataset.num_entities(),
+            dtype=torch.long,
+            device=self._entity_embedder.weight.device,
         )
         relation_indexes = torch.arange(
-            self.dataset.num_relations(), dtype=torch.long, device=self._entity_embedder.weight.device
+            self.dataset.num_relations(),
+            dtype=torch.long,
+            device=self._entity_embedder.weight.device,
         )
 
         # compute model specific entity and relation penalties
         for model_idx in range(self.model_manager.num_models()):
-            entity_projections = self.entity_nets[model_idx](self._entity_embedder(entity_indexes))
+            entity_projections = self.entity_nets[model_idx](
+                self._entity_embedder(entity_indexes)
+            )
             entity_penalty = loss_fn(entity_embeds[model_idx], entity_projections)
-            relation_projections = self.relation_nets[model_idx](self._entity_embedder(relation_indexes))
+            relation_projections = self.relation_nets[model_idx](
+                self._entity_embedder(relation_indexes)
+            )
             relation_penalty = loss_fn(relation_embeds[model_idx], relation_projections)
             penalty_sum += entity_penalty + relation_penalty
 
-        result += [
-            (
-                f"{self.configuration_key}.projection_penalty",
-                penalty_sum
-            )
-        ]
+        result += [(f"{self.configuration_key}.projection_penalty", penalty_sum)]
         return result
 
 
 class OneToNet(nn.Module, Configurable):
-
     def __init__(self, config: Config, dim_in, dim_out):
         super(OneToNet, self).__init__()
         Configurable.__init__(self, config, "onetonet")

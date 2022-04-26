@@ -7,7 +7,8 @@ from kge.util import load_checkpoint
 def add_package_parser(subparsers):
     """Creates the parser for the command package"""
     package_parser = subparsers.add_parser(
-        "package", help="Create packaged model (checkpoint only containing model)",
+        "package",
+        help="Create packaged model (checkpoint only containing model)",
     )
     package_parser.add_argument("checkpoint", type=str, help="filename of a checkpoint")
     package_parser.add_argument(
@@ -35,7 +36,10 @@ def package_model(args):
         "valid_trace": checkpoint["valid_trace"],
     }
     packaged_model = config.save_to(packaged_model)
-    packaged_model = dataset.save_to(packaged_model, ["entity_ids", "relation_ids"],)
+    packaged_model = dataset.save_to(
+        packaged_model,
+        ["entity_ids", "relation_ids"],
+    )
     if filename is None:
         output_folder, filename = os.path.split(checkpoint_file)
         if "checkpoint" in filename:

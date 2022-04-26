@@ -249,7 +249,8 @@ class Trace:
             job_id = yaml.load(entries[-1], Loader=yaml.SafeLoader).get("job_id")
 
         entries = Trace.grep_entries(
-            tracefile=tracefile, conjunctions=[f"job_id: {job_id}", f"scope: {scope}"],
+            tracefile=tracefile,
+            conjunctions=[f"job_id: {job_id}", f"scope: {scope}"],
         )
         return entries
 
@@ -260,9 +261,10 @@ def format_trace_entry(format_key, trace_entry, config):
         expr = config.get("console.format." + format_key)
     except KeyError:
         # not set -> use default
-        expr = ''
+        expr = ""
 
     import yaml
+
     if expr:
         return eval(
             expr,

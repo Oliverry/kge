@@ -34,7 +34,7 @@ class EvaluationJob(TrainingOrEvaluationJob):
 
     @staticmethod
     def create(config, dataset, parent_job=None, model=None):
-        """Factory method to create an evaluation job """
+        """Factory method to create an evaluation job"""
 
         eval_type = config.get("eval.type")
         class_name = config.get_default(f"{eval_type}.class_name")
@@ -143,5 +143,3 @@ class EvaluationJob(TrainingOrEvaluationJob):
             new_config.set("eval.split", eval_split, create=True)
 
         return super().create_from(checkpoint, new_config, dataset, parent_job)
-
-
