@@ -7,6 +7,11 @@ from kge.model.kge_model import RelationalScorer
 
 
 class Gate(nn.Module):
+    """
+    Implementation of the gate mechanism for LiteralE.
+    It adds information from the literals to the entity embedding.
+    """
+
     def __init__(self, input_size, output_size):
         super(Gate, self).__init__()
         self.output_size = output_size

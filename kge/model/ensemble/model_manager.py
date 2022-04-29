@@ -12,11 +12,16 @@ def fetch_embedding(
     model: KgeModel, target: EmbeddingTarget, indexes: Tensor = None
 ) -> Tensor:
     """
-    Fetches the embedding of a given model and indexes using the specified embedder
-    :param target:
-    :param model: The specified model
-    :param indexes: Given indexes
-    :return: Tensor of embeddings with shape n x 1 x E
+    Fetches the embedding of a given KGE model and an embedding target.
+    If indexes is given, entities or relations embeddings for index IDs are fetched, else all entities or relation
+    embeddings are fetched.
+    Fetches the embedding of a given model and indexes using the specified embedder.
+    Returns a tensor of n times E, where n is the number of indexes or number of entities and relations.
+    E is the embedding size of the KGE model.
+    :param target: Subject, predicate or object target of fetching.
+    :param model: The KGE model for fetching.
+    :param indexes: IDs of entities or relations to be fetched.
+    :return: Tensor of embeddings.
     """
     # check if certain type of model is used
     is_rrm = contains_model(model, ReciprocalRelationsModel)
@@ -62,11 +67,15 @@ def fetch_embedding(
 
 
 class ModelManager:
+    """
+    Class to manage the base models and handle queries for scores and embeddings.
+    """
+
     def __init__(self, config: Config, models: List[KgeModel]):
         self.models = models
 
         # lookup model specific dimension sizes
-        # use entity embedding as relations are preprocessed to the same size
+        # use entity embedding, as relations are preprocessed to the same size
         self.dims = {}
         for idx, model in enumerate(self.models):
             entity_emb = fetch_embedding(
@@ -78,12 +87,17 @@ class ModelManager:
             self.dims[idx] = entity_dim
 
     def num_models(self):
+        """
+        Return the number of base models in the given model manager.
+        :return: Number of base models.
+        """
         return len(self.models)
 
     def get_model_dims(self):
         """
-        Return a dictionary with the index of a model as key and corresponding value as (entity_dim, relation_dim).
-        :return:
+        Returns dictionary of model-specific embedding dimensions.
+        Given a model index, the entity and relation embedding size is returned.
+        :return: Dictionary of embedding sizes.
         """
         return self.dims
 
@@ -133,11 +147,14 @@ class ModelManager:
         self, target: EmbeddingTarget, indexes: Tensor = None
     ) -> Dict[int, Tensor]:
         """
-        Return tensor of size n times m times dim, where n is the length of the index tensor,
-        m is the number of models and dim is the embedding length.
-        :param target:
-        :param indexes:
-        :return:
+        Fetches the embeddings of all base models, given an embedding target.
+        If indexes are given, they are used as entity or relation IDs, otherwise all entities and relations are fetched.
+        Returns a dictionary, where given a model index, the embeddings are delivered.
+        The tensors have the form n times E, where n is the length of indexes or number of all entities or relations.
+        E is the model specific embedding length.
+        :param target: Subject, predicate or object target for fetching.
+        :param indexes: IDs of entities or relations.
+        :return: Dictionary of model specific embeddings given the model index.
         """
         embeds = {}
         for model_idx, model in enumerate(self.models):

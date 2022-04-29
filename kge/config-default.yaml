@@ -74,6 +74,8 @@ dataset:
     # - 3-...: arbitrary metadata fields
     #
     # Indexes are assumed to be dense throughout.
+    #
+    # source contains the file name which should be loaded
     train:
       source: train
       filename: train.del

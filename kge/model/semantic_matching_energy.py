@@ -7,6 +7,8 @@ from kge.model.kge_model import RelationalScorer
 
 
 class SmeScorer(RelationalScorer):
+    r"""Implementation of the Semantic Matching Energy KGE scorer."""
+
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
         entity_dim = self.get_option("entity_embedder.dim")
@@ -98,6 +100,8 @@ class SmeScorer(RelationalScorer):
 
 
 class SemanticMatchingEnergy(KgeModel):
+    r"""Implementation of the Semantic Matching Energy KGE model."""
+
     def __init__(
         self,
         config: Config,

@@ -7,6 +7,8 @@ from kge.model.kge_model import RelationalScorer, KgeModel
 
 
 class MultiLayerPerceptronScorer(RelationalScorer):
+    r"""Implementation of the Multilayer Perceptron KGE scorer."""
+
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
         entity_dim = self.get_option("entity_embedder.dim")
@@ -72,6 +74,8 @@ class MultiLayerPerceptronScorer(RelationalScorer):
 
 
 class MultilayerPerceptron(KgeModel):
+    r"""Implementation of the Multilayer Perceptron KGE model."""
+
     def __init__(
         self,
         config: Config,

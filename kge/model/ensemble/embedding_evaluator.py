@@ -1,5 +1,6 @@
 import copy
 from collections import OrderedDict
+from typing import List
 
 import torch
 from torch import Tensor, nn
@@ -9,6 +10,10 @@ from kge.misc import init_from
 
 
 class EmbeddingEvaluator(nn.Module, Configurable):
+    """
+    Base class for the combination of metaembeddings to an overall score.
+    """
+
     def __init__(self, config: Config, configuration_key, parent_configuration_key):
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
@@ -19,19 +24,27 @@ class EmbeddingEvaluator(nn.Module, Configurable):
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:
         """
-        Takes tensors of embeddings of the form n times E, where n is the number of triples
-        and E is dimensionality of the embeddings.
+        Computes a score for the given subject, predicate and object embeddings.
+        The tensor have the form n_s times E, n_p times E and n_o times E, where n_i is the respective number of tensor
+        for each embedding target and E is the metaembedding size.
         Then the embeddings are combined specified by the combine statement.
-        :param combine:
-        :param s:
-        :param p:
-        :param o:
-        :return:
+        :param s: Tensor of subject embeddings.
+        :param p: Tensor of predicate embeddings.
+        :param o: Tensor of object embeddings.
+        :param combine: String to specify how embeddings shall be combined.
+        :return: Tensor of scores.
         """
         raise NotImplementedError
 
+    def penalty(self, **kwargs) -> List[Tensor]:
+        return []
+
 
 class KgeAdapter(EmbeddingEvaluator):
+    """
+    An adapter class to use the scoring function of implemented KGE models.
+    """
+
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
         EmbeddingEvaluator.__init__(
             self, config, "kge_adapter", parent_configuration_key
@@ -71,9 +84,8 @@ class KgeAdapter(EmbeddingEvaluator):
 
 class FineTuning(EmbeddingEvaluator):
     """
-    Finetuning model uses separate neural networks for entities and relations.
-    The dimensionality of the output equals the dimensionality of the input
-    KgeAdapter is used to apply the scoring function.
+    A finetuning model that uses separate neural networks for entities and relations, which transform metaembeddings
+    before applying a KGE adapter to compute a final score.
     """
 
     def __init__(self, dataset: Dataset, config: Config, parent_configuration_key):
@@ -84,6 +96,7 @@ class FineTuning(EmbeddingEvaluator):
         num_layers = self.get_option("num_layers")
         dropout = self.get_option("dropout")
 
+        # create the entity finetuning layers
         i = 0
         entity_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
@@ -98,6 +111,7 @@ class FineTuning(EmbeddingEvaluator):
                 i += 1
         self.entity_finetuner = torch.nn.Sequential(entity_nn_dict)
 
+        # create the relation finetuning layers
         relation_nn_dict = OrderedDict()
         for idx in range(0, num_layers):
             relation_nn_dict[str(i) + "-dropout"] = nn.Dropout(p=dropout)
@@ -111,6 +125,7 @@ class FineTuning(EmbeddingEvaluator):
                 i += 1
         self.relation_finetuner = torch.nn.Sequential(relation_nn_dict)
 
+        # create the adapter
         self.adapter = KgeAdapter(dataset, config, parent_configuration_key)
 
     def score_emb(self, s: Tensor, p: Tensor, o: Tensor, combine: str) -> Tensor:

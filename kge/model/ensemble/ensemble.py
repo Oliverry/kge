@@ -38,6 +38,7 @@ class Ensemble(KgeModel):
         base_models = []
         for model_name in base_models_names:
             model = self.load_pretrained_model(model_name)
+
             # check if all models use a single embedder for subjects and objects
             if not model.get_s_embedder() is model.get_o_embedder():
                 raise Exception(
@@ -45,14 +46,17 @@ class Ensemble(KgeModel):
                     + "This is not the case for "
                     + model_name
                 )
+
             base_models.append(model)
+            config.log("Loaded pretrained model {0}".format(model_name))
         self.model_manager = ModelManager(self.config, base_models)
 
     def load_pretrained_model(self, model_name) -> KgeModel:
         """
-        The pretrained model has to be stored in the folder local/pretraining/dataset_name/model_name
-        :param model_name:
-        :return:
+        Loads a KGE model given the name for the dataset specified in the config.
+        The pretrained model has to be stored in the folder local/pretraining/dataset_name/model_name.
+        :param model_name: Name of the KGE model.
+        :return: Pretrained KGE model.
         """
         pretrained_model_path = os.path.join(
             pretrained_model_dir(), self.config.get("dataset.name"), model_name
@@ -67,13 +71,14 @@ class Ensemble(KgeModel):
             model = KgeModel.create_from(checkpoint, self.dataset)
             return model
         else:
-            raise Exception("Could not find pretrained model.")
+            raise Exception("Could not find pretrained model {0}.".format(model_name))
 
     def prepare_job(self, job: Job, **kwargs):
         from kge.job import TrainingOrEvaluationJob
 
         if isinstance(job, TrainingOrEvaluationJob):
 
+            # add number of parameters for output during epoch
             def append_num_parameter(job):
                 job.current_trace["epoch"]["num_parameters"] = sum(
                     map(lambda p: p.numel(), job.model.parameters())

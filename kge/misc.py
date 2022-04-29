@@ -166,4 +166,8 @@ def round_to_points(round_points_to: List[int], to_be_rounded: int):
 
 
 def pretrained_model_dir():
+    """
+    Return path to the pretrined model directory.
+    :return: Path of pretrained model directory.
+    """
     return os.path.join(kge_base_dir(), "local", "pretraining")

@@ -16,11 +16,12 @@ from kge.model.ensemble.util import EmbeddingType, EmbeddingTarget
 
 def concat_embeds(embeds):
     """
-    Takes embeddings of the form n times k_i, where n is the number of samples and k_i is the
-    model specific embedding size.
-    Return the concatenation of embeddings with form n times k, where k is the sum of k_i for 1 <= i <= m.
-    :param embeds:
-    :return:
+    Computes the concatenation for a given set of embeddings.
+    These embeddings are given as a dictionary, where a model index points to a tensor of embeddings.
+    Returns a tensor of size n times E, where n is the common number of embeddings and E is the size of the concatenated
+    embeddings.
+    :param embeds: Dictionary from model index integer to model specific embedding.
+    :return: Tensor of concatenated embeddings.
     """
     embeds_list = []
     for model_idx in embeds.keys():
@@ -31,10 +32,12 @@ def concat_embeds(embeds):
 
 def pad_embeds(embeds, padding_length):
     """
-    Pads all embeddings with zero to embedding length padding_length.
-    :param embeds:
-    :param padding_length:
-    :return:
+    Applies padding on the given dictionary of embeddings.
+    The embeddings are provided as a dictionary pointing from a model index to the model specific embeddings.
+    Returns a dictionary, where the model specific embeddings are padded with zeros to the specified length.
+    :param embeds: Dictionary of model specific embeddings.
+    :param padding_length: Length of the padded model specific embeddings.
+    :return: Dictionary of model specific padded embeddings.
     """
     padded_embeds = {}
     for model_idx in embeds:
@@ -45,6 +48,12 @@ def pad_embeds(embeds, padding_length):
 
 
 def pad_embed(embed, padding_length):
+    """
+    Applies padding with zeros on a single tensor of embeddings.
+    :param embed: Tensor of embeddings to be padded.
+    :param padding_length: Length of the padded embeddings.
+    :return: Tensor of padded embeddings.
+    """
     last_dim = embed.size()[1]
     padded_embed = F.pad(
         input=embed, pad=(0, padding_length - last_dim), mode="constant", value=0
@@ -54,9 +63,12 @@ def pad_embed(embed, padding_length):
 
 def avg_embeds(embeds):
     """
-    Takes embeddings of the same form n times k and return the average mean over all embeddings.
-    :param embeds:
-    :return:
+    Computes the mean for a given set of embeddings.
+    These embeddings are given as a dictionary, where a model index points to a tensor of embeddings.
+    This tensor has the form n times E, where n is the common number of embeddings and E is the common embedding size.
+    Returns a tensor of size n times E.
+    :param embeds: Dictionary of model specific embeddings.
+    :return: Tensor of average embeddings.
     """
     embed_list = []
     for model_idx in embeds:
@@ -70,6 +82,10 @@ def avg_embeds(embeds):
 
 
 class AggregationBase(nn.Module, Configurable):
+    """
+    Base class to perform aggregation on a given set of embeddings.
+    """
+
     def __init__(
         self,
         model_manager: ModelManager,
@@ -77,15 +93,6 @@ class AggregationBase(nn.Module, Configurable):
         configuration_key,
         parent_configuration_key,
     ):
-        """
-        Initializes basic dim reduction variables.
-        Updates the reduced dimensionality in embedding ensemble if entity_reduction and relation_reduction
-        are given for the reduction model, else do a concatenation
-        If parameters are already set, do not update them
-        :param config:
-        :param configuration_key:
-        :param parent_configuration_key:
-        """
         Configurable.__init__(self, config, configuration_key)
         nn.Module.__init__(self)
         self.model_manager = model_manager
@@ -104,6 +111,11 @@ class AggregationBase(nn.Module, Configurable):
         )
 
     def compute_dims(self):
+        """
+        Computes the entity and relation embedding dimensions after aggregation has been applied.
+        For this the reduction option in the config for the respective aggregation method are considered.
+        :return:
+        """
         # compute concatenated agg dim
         embed_dims = self.model_manager.get_model_dims()
         embed_dim = 0
@@ -130,15 +142,21 @@ class AggregationBase(nn.Module, Configurable):
 
     def aggregate(self, target: EmbeddingTarget, indexes: Tensor = None):
         """
-        Applies an aggregation function for the given indexes and the specified target of
-        embedder
-        :param target: Can have the values "s", "p" and "o"
-        :param indexes: Tensor of entity or relation indexes
-        :return: Aggregated embeddings of multiple models
+        Applies an aggregation function on a set of embeddings to compute a metaembedding.
+        The embeddings are fetched first using the model manager for a given embedding target.
+        If the indexes are given, they are used as IDs for entities or relations, otherwise all known entities or
+        relations are fetched.
+        :param target: Specifies whether entities or relations shall be combined.
+        :param indexes: Tensor of entity or relation IDs.
+        :return: Aggregated embeddings of all base models
         """
         raise NotImplementedError
 
     def train_aggregation(self):
+        """
+        Executes an optional optimization routine for the aggregation methods.
+        :return:
+        """
         raise NotImplementedError
 
     def penalty(self, **kwargs) -> List[Tensor]:
@@ -146,6 +164,10 @@ class AggregationBase(nn.Module, Configurable):
 
 
 class Concat(AggregationBase):
+    """
+    Aggregation method that combines the embeddings by simple concatenation.
+    """
+
     def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
         AggregationBase.__init__(
             self, model_manager, config, "concat", parent_configuration_key
@@ -162,6 +184,10 @@ class Concat(AggregationBase):
 
 
 class MeanReduction(AggregationBase):
+    """
+    This class computes the metaembeddings by taking the mean over all base model embeddings.
+    """
+
     def __init__(self, model_manager: ModelManager, config, parent_configuration_key):
         AggregationBase.__init__(
             self, model_manager, config, "mean", parent_configuration_key
@@ -196,6 +222,10 @@ class MeanReduction(AggregationBase):
 
 
 class PcaReduction(AggregationBase):
+    """
+    Applies PCA on the set of entities and relation to be used for metaembeddings.
+    """
+
     def __init__(
         self, model_manager: ModelManager, dataset, config, parent_configuration_key
     ):
@@ -203,6 +233,7 @@ class PcaReduction(AggregationBase):
             self, model_manager, config, "pca", parent_configuration_key
         )
 
+        # contain the metaembeddings for entities and relations
         self._entity_embedder = torch.nn.Embedding(
             dataset.num_entities(), self.entity_agg_dim
         )
@@ -273,6 +304,10 @@ class PcaReduction(AggregationBase):
 
 
 class AutoencoderReduction(AggregationBase):
+    """
+    Applies the AAEME method to compute metaembeddings.
+    """
+
     def __init__(
         self, model_manager: ModelManager, config: Config, parent_configuration_key
     ):
@@ -316,6 +351,12 @@ class AutoencoderReduction(AggregationBase):
         return res.detach()
 
     def encode(self, e_type: EmbeddingType, embeds: Dict[int, Tensor]) -> Tensor:
+        """
+        Given a dictionary of embeddings, encode them with their model specific Autoencoder.
+        :param e_type: Specifies whether entities or relation shall be processed.
+        :param embeds: Dictionary of model-specific embeddings.
+        :return: Dictionary of model-specific encoded embeddings.
+        """
         encoded = {}
         for model_idx, embed in embeds.items():
             if e_type == EmbeddingType.Entity:
@@ -329,6 +370,12 @@ class AutoencoderReduction(AggregationBase):
         return res
 
     def decode(self, e_type: EmbeddingType, embeds: Tensor) -> Dict[int, Tensor]:
+        """
+        Given a dictionary of embeddings, decode them with their model specific Autoencoder.
+        :param e_type: Specifies whether entities or relation shall be processed.
+        :param embeds: Dictionary of model-specific encoded embeddings.
+        :return: Dictionary of model-specific decoded embeddings.
+        """
         decoded = {}
         for model_idx in range(self.model_manager.num_models()):
             if e_type == EmbeddingType.Entity:
@@ -350,6 +397,12 @@ class AutoencoderReduction(AggregationBase):
         self.config.log("Completed aggregation training.")
 
     def train_model(self, e_type: EmbeddingType, model):
+        """
+        Subprocess to train entitiy and relation Autoencoder separately.
+        :param e_type: Specifies whether entity or relations Autoencoder shall be optimized.
+        :param model: Set of Autoencoders to be optimized.
+        :return:
+        """
         # create dataloader
         dataloader_train, dataloader_valid = create_aggregation_dataloader(
             self.model_manager, e_type, 0.8, self.batch_size, True
@@ -404,6 +457,14 @@ class AutoencoderReduction(AggregationBase):
             )
 
     def validate(self, model, e_type, dataloader_valid, loss_function):
+        """
+        Separate validation function for aggregation optimization to capture the performance on the validation dataset.
+        :param model: Autoencoder models to be validated.
+        :param e_type: Specifies whether entities or relation will be validated.
+        :param dataloader_valid: The dataloader with the validation dataset.
+        :param loss_function: The loss function, which shall be used for validation.
+        :return:
+        """
         model.eval()
         loss_total = 0
 
@@ -430,6 +491,10 @@ class AutoencoderReduction(AggregationBase):
 
 
 class Autoencoder(nn.Module, Configurable):
+    """
+    A single Autoenocder to encode and decode embeddings for specified embedding sizes.
+    """
+
     def __init__(self, config: Config, dim_in, dim_out):
         super(Autoencoder, self).__init__()
         Configurable.__init__(self, config, "autoencoder")
@@ -444,12 +509,14 @@ class Autoencoder(nn.Module, Configurable):
         encode_dict = OrderedDict()
         decode_dict = OrderedDict()
 
+        # compute layer dimensions
         layer_dims = [
             round(self.dim_in - n * ((self.dim_in - self.dim_out) / self.num_layers))
             for n in range(0, self.num_layers)
         ]
         layer_dims.append(self.dim_out)
 
+        # create autoencoder layers
         i = 0
         for idx in range(0, self.num_layers):
             encode_dict[str(i) + "-dropout"] = nn.Dropout(p=self.dropout)
@@ -474,20 +541,40 @@ class Autoencoder(nn.Module, Configurable):
         self.decoder = torch.nn.Sequential(decode_dict)
 
     def forward(self, x):
+        """
+        Applies an encoding and decoding of embeddings.
+        :param x: The embeddings to be encoded and decoded.
+        :return: The decoded embeddings.
+        """
         encoded = self.encode(x)
         decoded = self.decode(encoded)
         return decoded
 
     def encode(self, x):
+        """
+        Encodes the given embeddings.
+        :param x: The embeddings to be encoded.
+        :return: The encoded embeddings.
+        """
         encoded = self.encoder(x)
         return encoded
 
     def decode(self, x):
+        """
+        Decodes the given embeddings.
+        :param x: The encoded embeddings to be decoded.
+        :return: The decoded embeddings.
+        """
         decoded = self.decoder(x)
         return decoded
 
 
 class OneToN(AggregationBase):
+    """
+    This class applies the one to n aggregation technique.
+    It was implemented for end to end learning in a given embedding ensemble model.
+    """
+
     def __init__(
         self,
         model_manager: ModelManager,
@@ -601,6 +688,10 @@ class OneToN(AggregationBase):
 
 
 class OneToNet(nn.Module, Configurable):
+    """
+    A single neural network to project model-specific metaembeddings to a single source embedding set.
+    """
+
     def __init__(self, config: Config, dim_in, dim_out):
         super(OneToNet, self).__init__()
         Configurable.__init__(self, config, "onetonet")
@@ -609,6 +700,11 @@ class OneToNet(nn.Module, Configurable):
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, x):
+        """
+        Project the given embeddings to their source embeddings.
+        :param x: The metaembeddings to be projected.
+        :return: The transformed source embeddings.
+        """
         x = self.dropout(x)
         x = self.layer(x)
         return x

@@ -97,6 +97,8 @@ class Dataset(Configurable):
     def create(config: Config, preload_data: bool = True, folder: Optional[str] = None):
         """Loads a dataset.
 
+        Considers the source of the respective split for loading.
+
         If preload_data is set, loads entity and relation maps as well as all splits.
         Otherwise, this data is lazy loaded on first use.
 
@@ -586,6 +588,11 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return Dataset._map_indexes(indexes, map_)
 
     def load_numerical_literals(self):
+        """
+        Loads the numerical literals from the file specified in the config if available.
+        The literals are stored as a dictionary, which delivers a vector of literals for each entity.
+        :return:
+        """
         if self._numerical_literals is None and self.config.exists(
             f"dataset.files.numerical_literals"
         ):
@@ -638,6 +645,11 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
             )
 
     def load_numerical_literal_emb(self, indexes: Tensor = None):
+        """
+        Loads the numerical literal vectors for the set of entities.
+        :param indexes: Entity IDs, whose numerical vectors are fetched.
+        :return: Tensor of numerical vectors with the same order as the indexes tensor.
+        """
         if indexes is None:
             res = self._numerical_literals
         else:
@@ -645,6 +657,11 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         return res
 
     def load_textual_literals(self):
+        """
+        Loads the textual literals from the file specified in the config if available.
+        Textual literals are stored as a dictionary from the entity ID to the literal.
+        :return:
+        """
         if self._textual_literals is None and self.config.exists(
             f"dataset.files.textual_literals"
         ):
@@ -676,6 +693,11 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
             self.config.log(f"Loaded {len(tuples_list)} textual literals")
 
     def load_textual_description(self, index):
+        """
+        Fetches the textual literals for a given entity ID and returns it.
+        :param index: The entity ID of the literal to be fecthed.
+        :return: String of textual entity description.
+        """
         if index in self._textual_literals:
             return self._textual_literals[index]
         else:

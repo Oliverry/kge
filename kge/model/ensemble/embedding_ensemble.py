@@ -18,6 +18,11 @@ from kge.model.ensemble.model_manager import EmbeddingTarget
 
 
 class EmbeddingEnsemble(Ensemble):
+    """
+    Ensemble of KGE models, which combines the embeddings to a metaembedding with a specified aggregator.
+    Afterward, computes a score from the metaembedding with a specified evaluator.
+    """
+
     def __init__(
         self,
         config: Config,
@@ -32,48 +37,55 @@ class EmbeddingEnsemble(Ensemble):
             init_for_load_only=init_for_load_only,
         )
 
-        # Lookup  embedding ensemble options
+        # Lookup embedding ensemble options
         self.normalize_p = self.get_option("normalize_p")
 
-        # Lookup and initiate dimensionality reduction method
+        # Lookup aggregator and evaluator
         aggregation_option = self.get_option("aggregation")
         evaluator_option = self.get_option("evaluator")
+
+        # Create aggregator
         if aggregation_option == "concat":
             self.aggregation = Concat(
                 self.model_manager, config, self.configuration_key
             )
+            config.log("Created Concat aggregator.")
         elif aggregation_option == "mean":
             self.aggregation = MeanReduction(
                 self.model_manager, config, self.configuration_key
             )
+            config.log("Created AvgMean aggregator.")
         elif aggregation_option == "pca":
             self.aggregation = PcaReduction(
                 self.model_manager, dataset, config, self.configuration_key
             )
+            config.log("Created PCA aggregator.")
         elif aggregation_option == "autoencoder":
             self.aggregation = AutoencoderReduction(
                 self.model_manager, config, self.configuration_key
             )
+            config.log("Created AAEME aggregator.")
         elif aggregation_option == "oneton":
             self.aggregation = OneToN(
                 self.model_manager, dataset, config, self.configuration_key
             )
+            config.log("Created OneToN aggragator.")
         else:
             raise Exception("Unknown dimensionality reduction: " + aggregation_option)
 
         # Lookup and initiate evaluator method
         if evaluator_option == "kge_adapter":
             self.evaluator = KgeAdapter(dataset, config, self.configuration_key)
+            config.log("Created KGE Adapter evaluator.")
         elif evaluator_option == "finetuning":
             self.evaluator = FineTuning(dataset, config, self.configuration_key)
+            config.log("Created Finetuning evaluator.")
         else:
             raise Exception("Unknown evaluator: " + evaluator_option)
 
-        # Start training of dimensionality reduction method if available
+        # Start training of aggregator if available
         if not init_for_load_only:
-            self.aggregation.train()
             self.aggregation.train_aggregation()
-        self.aggregation.eval()
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         s_emb = self.aggregation.aggregate(EmbeddingTarget.Subject, s)
@@ -139,12 +151,23 @@ class EmbeddingEnsemble(Ensemble):
         return res
 
     def _postprocess(self, embed: Tensor) -> Tensor:
+        """
+        Postprocess metaembeddings with normalization if specified in the config.
+        :param embed: Metaembedding to be normalized.
+        :return: Normalized Metaembedding.
+        """
         if self.normalize_p > 0:
             with torch.no_grad():
                 embed = torch.nn.functional.normalize(embed, p=self.normalize_p, dim=1)
         return embed
 
     def penalty(self, **kwargs) -> List[Tensor]:
+        """
+        Compute regularization penalty from substructures and add them for the epoch.
+        :param kwargs:
+        :return:
+        """
         result = super().penalty(**kwargs)
         result += self.aggregation.penalty(**kwargs)
+        result += self.evaluator.penalty(**kwargs)
         return result
