@@ -1,0 +1,73 @@
+job.type: search
+
+dataset:
+  name: wnrr
+  files:
+    train:
+      source: train_ensemble
+    valid:
+      source: valid_ensemble
+
+train:
+  type: negative_sampling
+  batch_size: 256
+  loss: kl
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    factor: 0.95
+    mode: max
+    patience: 7
+    threshold: 0.0001
+  max_epochs: 100
+  optimizer.default:
+    type: Adagrad
+    args.lr: 0.1
+
+negative_sampling:
+  num_samples:
+    s: 30
+
+eval:
+  batch_size: 256
+  metrics_per:
+    relation_type: true
+  trace_level: example
+
+valid:
+  early_stopping:
+    min_threshold:
+      epochs: 50
+      metric_value: 0.05
+    patience: 10
+
+model: embedding_ensemble
+
+embedding_ensemble:
+  base_models: [complex, distmult, rotate, conve]
+  aggregation: autoencoder
+  evaluator: finetuning
+  normalize_p: 2.0
+
+autoencoder_reduction:
+  epochs: 400
+  batch_size: 64
+  patience: 5
+  entity_reduction: 0.2
+  relation_reduction: 0.2
+
+autoencoder:
+  num_layers: 1
+  dropout: 0.0
+
+import: [complex]
+kge_adapter:
+  model:
+    type: complex
+
+finetuning:
+  num_layers: 1
+
+search.type: grid
+grid_search.parameters:
+  autoencoder.dropout: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+  autoencoder_reduction.lr: [0.1, 0.01, 0.001, 0.0001, 0.00001]

@@ -2,7 +2,7 @@
 .idea/
 local/*
 !local/README
-!local/configs/base/toy/transe_train.yaml
+!local/configs/
 /data/*
 !data/*.sh
 !data/preprocess/

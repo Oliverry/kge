@@ -168,7 +168,7 @@ class SubSplit(Split):
 @dataclass
 class RandomSubSplit(Split):
     """
-    A split which uniformly samples with a given ratio.
+    A split which uniformly samples data points with a given ratio.
     """
 
     set = set()
